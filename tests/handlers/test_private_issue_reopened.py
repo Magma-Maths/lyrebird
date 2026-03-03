@@ -18,7 +18,7 @@ def test_removes_resolution_and_needs_resolution(config, mock_client):
     mock_priv_issue = MagicMock()
 
     lbl1 = MagicMock()
-    lbl1.name = "external:fixed"
+    lbl1.name = "external:completed"
     lbl2 = MagicMock()
     lbl2.name = "needs-public-resolution"
     lbl3 = MagicMock()
@@ -30,7 +30,7 @@ def test_removes_resolution_and_needs_resolution(config, mock_client):
 
     handle(mock_client, config, payload)
 
-    mock_priv_issue.remove_from_labels.assert_any_call("external:fixed")
+    mock_priv_issue.remove_from_labels.assert_any_call("external:completed")
     mock_priv_issue.remove_from_labels.assert_any_call("needs-public-resolution")
     # Should NOT remove unrelated labels
     calls = [c[0][0] for c in mock_priv_issue.remove_from_labels.call_args_list]

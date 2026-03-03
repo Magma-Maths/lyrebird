@@ -9,24 +9,20 @@ from dataclasses import dataclass, field
 
 # Default public close notes keyed by resolution key.
 DEFAULT_RESOLUTION_NOTES: dict[str, tuple[str, str | None]] = {
-    "fixed": (
+    "completed": (
         "Fixed on main. Thanks for the report. "
         "If you still see this after updating, please comment here with details.",
         "completed",
     ),
-    "wontfix": (
+    "not-planned": (
         "Closing as not planned at this time. "
         "Thanks for taking the time to report it.",
         "not_planned",
     ),
-    "duplicate": (
-        "Closing as a duplicate. Please follow the linked issue for updates.",
-        "completed",
-    ),
     "cannot-reproduce": (
         "We could not reproduce this with the information available. "
         "If you can share steps/logs, we can reopen.",
-        "completed",
+        "not_planned",
     ),
 }
 
@@ -98,7 +94,7 @@ def _build_resolution_labels(
 
     Expected JSON format:
     {
-        "fixed": {"label": "external:fixed", "note": "...", "state_reason": "completed"},
+        "completed": {"label": "external:completed", "note": "...", "state_reason": "completed"},
         ...
     }
     If not provided, uses DEFAULT_RESOLUTION_NOTES with label prefix "external:".

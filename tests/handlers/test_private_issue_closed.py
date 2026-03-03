@@ -51,7 +51,7 @@ def _setup_mocks(config, mock_client, private_labels: list[str]):
 def test_one_resolution_label_closes_public(config, mock_client):
     payload = _make_payload()
     priv_issue, pub_issue, _ = _setup_mocks(
-        config, mock_client, ["external:fixed"]
+        config, mock_client, ["external:completed"]
     )
 
     handle(mock_client, config, payload)
@@ -83,7 +83,7 @@ def test_zero_resolution_labels_nudges(config, mock_client):
 def test_multiple_resolution_labels_nudges(config, mock_client):
     payload = _make_payload()
     priv_issue, pub_issue, _ = _setup_mocks(
-        config, mock_client, ["external:fixed", "external:wontfix"]
+        config, mock_client, ["external:completed", "external:not-planned"]
     )
 
     handle(mock_client, config, payload)
@@ -110,7 +110,7 @@ def test_not_mirrored_issue_skips(config, mock_client):
 def test_public_already_closed_skips_close(config, mock_client):
     payload = _make_payload()
     priv_issue, pub_issue, _ = _setup_mocks(
-        config, mock_client, ["external:fixed"]
+        config, mock_client, ["external:completed"]
     )
     pub_issue.state = "closed"
 

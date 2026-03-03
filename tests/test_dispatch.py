@@ -50,7 +50,7 @@ def test_route_private_comment_slash_public(config, mock_client):
 def test_route_private_comment_slash_public_close(config, mock_client):
     payload = {
         "issue": {"number": 1},
-        "comment": {"body": "/public-close fixed done"},
+        "comment": {"body": "/public-close completed done"},
     }
     with patch("lyrebird.dispatch.slash_public_close") as mod:
         route(mock_client, config, "issue_comment", "created", payload, source="private")

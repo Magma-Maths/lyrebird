@@ -21,13 +21,12 @@ def config():
         private_repo="testorg/private-repo",
         bot_login="lyrebird[bot]",
         resolution_labels={
-            "fixed": ("external:fixed", "Fixed on main. Thanks for the report.", "completed"),
-            "wontfix": ("external:wontfix", "Closing as not planned.", "not_planned"),
-            "duplicate": ("external:duplicate", "Closing as a duplicate.", "completed"),
+            "completed": ("external:completed", "Fixed on main. Thanks for the report.", "completed"),
+            "not-planned": ("external:not-planned", "Closing as not planned.", "not_planned"),
             "cannot-reproduce": (
                 "external:cannot-reproduce",
                 "We could not reproduce this.",
-                "completed",
+                "not_planned",
             ),
         },
     )

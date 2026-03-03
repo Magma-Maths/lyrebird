@@ -8,7 +8,7 @@ from lyrebird.handlers.slash_public_close import handle
 from tests.conftest import make_private_issue_body
 
 
-def _make_payload(body: str = "/public-close fixed This has been fixed"):
+def _make_payload(body: str = "/public-close completed This has been fixed"):
     return {
         "issue": {
             "number": 10,
@@ -53,13 +53,13 @@ def _setup_mocks(config, mock_client):
 
 
 def test_full_close_flow(config, mock_client):
-    payload = _make_payload("/public-close fixed This has been fixed")
+    payload = _make_payload("/public-close completed This has been fixed")
     priv_issue, pub_issue, _, _ = _setup_mocks(config, mock_client)
 
     handle(mock_client, config, payload)
 
     # Should add resolution label
-    priv_issue.add_to_labels.assert_called_with("external:fixed")
+    priv_issue.add_to_labels.assert_called_with("external:completed")
     # Should close private
     priv_issue.edit.assert_any_call(state="closed")
     # Should post note on public
@@ -69,7 +69,7 @@ def test_full_close_flow(config, mock_client):
 
 
 def test_full_close_flow_anonymous(config, mock_client):
-    payload = _make_payload("/public-close fixed --anon This has been fixed")
+    payload = _make_payload("/public-close completed --anon This has been fixed")
     priv_issue, pub_issue, _, _ = _setup_mocks(config, mock_client)
 
     handle(mock_client, config, payload)
@@ -91,7 +91,7 @@ def test_invalid_resolution(config, mock_client):
 
 
 def test_default_note_when_no_custom_note(config, mock_client):
-    payload = _make_payload("/public-close fixed")
+    payload = _make_payload("/public-close completed")
     priv_issue, pub_issue, _, _ = _setup_mocks(config, mock_client)
 
     handle(mock_client, config, payload)
@@ -105,16 +105,16 @@ def test_default_note_when_no_custom_note(config, mock_client):
 
 def test_normalizes_resolution_labels(config, mock_client):
     """If issue has a different resolution label, replace it."""
-    payload = _make_payload("/public-close wontfix Not planned")
+    payload = _make_payload("/public-close not-planned Not planned")
     priv_issue, pub_issue, _, _ = _setup_mocks(config, mock_client)
 
-    # Issue already has external:fixed
+    # Issue already has external:completed
     lbl = MagicMock()
-    lbl.name = "external:fixed"
+    lbl.name = "external:completed"
     priv_issue.get_labels.return_value = [lbl]
 
     handle(mock_client, config, payload)
 
     # Should remove old resolution label and add new one
-    priv_issue.remove_from_labels.assert_called_with("external:fixed")
-    priv_issue.add_to_labels.assert_called_with("external:wontfix")
+    priv_issue.remove_from_labels.assert_called_with("external:completed")
+    priv_issue.add_to_labels.assert_called_with("external:not-planned")

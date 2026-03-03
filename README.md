@@ -30,7 +30,7 @@ Closes both the private and public issues. `<resolution>` must be one of the con
 
 Example:
 ```
-/public-close fixed We shipped a fix in v2.1, thanks for the report!
+/public-close completed We shipped a fix in v2.1, thanks for the report!
 ```
 
 ## Closing behavior
@@ -45,8 +45,8 @@ When a private issue is reopened, resolution and `needs-public-resolution` label
 
 Resolution labels control `/public-close` and the automatic close behavior. Each has four parts:
 
-- **key** &mdash; the argument to `/public-close` (e.g. `fixed`, `wontfix`)
-- **label** &mdash; the private-repo label applied (e.g. `external:fixed`)
+- **key** &mdash; the argument to `/public-close` (e.g. `completed`, `not-planned`)
+- **label** &mdash; the private-repo label applied (e.g. `external:completed`)
 - **note** &mdash; the default message posted on the public issue
 - **state_reason** &mdash; the GitHub close reason (`completed` or `not_planned`)
 
@@ -54,19 +54,17 @@ Defaults:
 
 | Key | Label | Default public note | State reason |
 |-----|-------|---------------------|--------------|
-| `fixed` | `external:fixed` | Fixed on main. Thanks for the report. If you still see this after updating, please comment here with details. | `completed` |
-| `wontfix` | `external:wontfix` | Closing as not planned at this time. Thanks for taking the time to report it. | `not_planned` |
-| `duplicate` | `external:duplicate` | Closing as a duplicate. Please follow the linked issue for updates. | `completed` |
-| `cannot-reproduce` | `external:cannot-reproduce` | We could not reproduce this with the information available. If you can share steps/logs, we can reopen. | `completed` |
+| `completed` | `external:completed` | Fixed on main. Thanks for the report. If you still see this after updating, please comment here with details. | `completed` |
+| `not-planned` | `external:not-planned` | Closing as not planned at this time. Thanks for taking the time to report it. | `not_planned` |
+| `cannot-reproduce` | `external:cannot-reproduce` | We could not reproduce this with the information available. If you can share steps/logs, we can reopen. | `not_planned` |
 
 These are set explicitly in the workflow templates (`RESOLUTION_LABELS` in the `env:` block of each `handle-*.yml`). To customize, edit them there or set `RESOLUTION_LABELS` as JSON:
 
 ```json
 {
-  "fixed":            {"label": "external:fixed",            "note": "Custom note.",  "state_reason": "completed"},
-  "wontfix":          {"label": "external:wontfix",          "note": "Custom note.",  "state_reason": "not_planned"},
-  "duplicate":        {"label": "external:duplicate",        "note": "Custom note.",  "state_reason": "completed"},
-  "cannot-reproduce": {"label": "external:cannot-reproduce", "note": "Custom note.",  "state_reason": "completed"}
+  "completed":        {"label": "external:completed",        "note": "Custom note.",  "state_reason": "completed"},
+  "not-planned":      {"label": "external:not-planned",      "note": "Custom note.",  "state_reason": "not_planned"},
+  "cannot-reproduce": {"label": "external:cannot-reproduce", "note": "Custom note.",  "state_reason": "not_planned"}
 }
 ```
 
