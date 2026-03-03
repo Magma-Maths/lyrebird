@@ -1,0 +1,52 @@
+# Install in the PRIVATE repo at .github/workflows/handle-private-issue.yml
+#
+# Handles native issue events on the private repo (close, reopen, label changes).
+
+name: Handle private issue events
+
+on:
+  issues:
+    types: [closed, reopened, labeled, unlabeled]
+
+concurrency:
+  group: private-issue-${{ github.event.issue.node_id }}
+  cancel-in-progress: false
+
+jobs:
+  handle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout lyrebird
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.LYREBIRD_REPO }}
+          path: lyrebird
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install lyrebird
+        run: pip install ./lyrebird
+
+      - name: Generate App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.LYREBIRD_APP_ID }}
+          private-key: ${{ secrets.LYREBIRD_APP_PRIVATE_KEY }}
+          repositories: ${{ vars.PUBLIC_REPO_NAME }},${{ vars.PRIVATE_REPO_NAME }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Run handler
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          PUBLIC_REPO: ${{ vars.PUBLIC_REPO }}
+          PRIVATE_REPO: ${{ vars.PRIVATE_REPO }}
+          BOT_LOGIN: ${{ vars.BOT_LOGIN }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          EVENT_SOURCE: private
+          EVENT_PAYLOAD: ${{ toJson(github.event) }}
+        run: python -m lyrebird

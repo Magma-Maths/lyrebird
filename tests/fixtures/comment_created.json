@@ -1,0 +1,21 @@
+{
+  "action": "created",
+  "issue": {
+    "number": 42,
+    "node_id": "I_kwDOTest",
+    "title": "Bug report",
+    "body": "Something is broken",
+    "state": "open",
+    "html_url": "https://github.com/testorg/public-repo/issues/42",
+    "user": {"login": "reporter"},
+    "created_at": "2025-01-01T00:00:00Z",
+    "labels": []
+  },
+  "comment": {
+    "id": 999,
+    "body": "I can reproduce this too",
+    "html_url": "https://github.com/testorg/public-repo/issues/42#issuecomment-999",
+    "user": {"login": "commenter"}
+  },
+  "sender": {"login": "commenter", "type": "User"}
+}

@@ -1,0 +1,42 @@
+{
+  "public_command": {
+    "action": "created",
+    "issue": {
+      "number": 10,
+      "node_id": "I_kwDOPriv",
+      "title": "[public #42] Bug report",
+      "body": "**Public issue**: https://github.com/testorg/public-repo/issues/42\n**Author**: @reporter\n**Created**: 2025-01-01T00:00:00Z\n\n<!-- BEGIN PUBLIC BODY -->\nSomething is broken\n<!-- END PUBLIC BODY -->\n\n<!-- public_issue_url: https://github.com/testorg/public-repo/issues/42 -->\n<!-- public_issue_node_id: I_kwDOTest -->",
+      "state": "open",
+      "html_url": "https://github.com/testorg/private-repo/issues/10",
+      "user": {"login": "lyrebird[bot]"},
+      "labels": []
+    },
+    "comment": {
+      "id": 500,
+      "body": "/public We're looking into this.",
+      "html_url": "https://github.com/testorg/private-repo/issues/10#issuecomment-500",
+      "user": {"login": "engineer"}
+    },
+    "sender": {"login": "engineer", "type": "User"}
+  },
+  "public_close_command": {
+    "action": "created",
+    "issue": {
+      "number": 10,
+      "node_id": "I_kwDOPriv",
+      "title": "[public #42] Bug report",
+      "body": "**Public issue**: https://github.com/testorg/public-repo/issues/42\n**Author**: @reporter\n**Created**: 2025-01-01T00:00:00Z\n\n<!-- BEGIN PUBLIC BODY -->\nSomething is broken\n<!-- END PUBLIC BODY -->\n\n<!-- public_issue_url: https://github.com/testorg/public-repo/issues/42 -->\n<!-- public_issue_node_id: I_kwDOTest -->",
+      "state": "open",
+      "html_url": "https://github.com/testorg/private-repo/issues/10",
+      "user": {"login": "lyrebird[bot]"},
+      "labels": []
+    },
+    "comment": {
+      "id": 501,
+      "body": "/public-close fixed This has been fixed in v2.1",
+      "html_url": "https://github.com/testorg/private-repo/issues/10#issuecomment-501",
+      "user": {"login": "engineer"}
+    },
+    "sender": {"login": "engineer", "type": "User"}
+  }
+}

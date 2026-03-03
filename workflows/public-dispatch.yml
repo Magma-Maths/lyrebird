@@ -1,0 +1,38 @@
+# Install in the PUBLIC repo at .github/workflows/public-dispatch.yml
+#
+# This workflow forwards issue and comment events to the private repo
+# via repository_dispatch.  No business logic runs here.
+
+name: Dispatch public events to private repo
+
+on:
+  issues:
+    types: [opened, edited, labeled, unlabeled, closed, reopened]
+  issue_comment:
+    types: [created, edited, deleted]
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate App token for private repo
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.LYREBIRD_APP_ID }}
+          private-key: ${{ secrets.LYREBIRD_APP_PRIVATE_KEY }}
+          repositories: ${{ vars.PRIVATE_REPO_NAME }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Dispatch to private repo
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          repository: ${{ vars.PRIVATE_REPO }}
+          event-type: public_event
+          client-payload: |
+            {
+              "event_name": "${{ github.event_name }}",
+              "action": "${{ github.event.action }}",
+              "event": ${{ toJson(github.event) }}
+            }
