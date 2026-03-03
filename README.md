@@ -1,41 +1,83 @@
 # Lyrebird
 
-Public-to-private GitHub issue mirroring. Lyrebird automatically copies public issues and comments into a private repository so engineers can work in one place, while providing selective, curated updates back to the public issue.
+Public-to-private GitHub issue mirroring. Lyrebird automatically copies public issues and comments into a private repository, and lets you post selective, curated updates back to the public issue.
 
-## How it works
+## What happens automatically
 
-Lyrebird runs as a set of GitHub Actions workflows. A thin workflow on the public repo forwards issue and comment events to the private repo via `repository_dispatch`. Handler workflows on the private repo check out Lyrebird, install it, and run the appropriate handler.
+When someone opens, edits, or comments on a public issue, Lyrebird mirrors everything into a corresponding private issue:
 
-All mapping state lives in GitHub itself (HTML comment markers in issue bodies and comments) — no external database or key-value store.
+- New public issue &rarr; private issue created as `[public #N] <title>` with a link back
+- Public edits &rarr; private title and body updated
+- Public comments &rarr; mirrored to private (edits update in-place, deletes become tombstones)
+- Public labels &rarr; mirrored to private, auto-creating missing labels
+- Public close/reopen &rarr; `public:closed` / `public:closed-by-reporter` labels on private, plus an audit comment (private open/closed state is not changed)
 
-### Public to private (automatic)
+## Slash commands
 
-- **Issue opened** — creates a private mirror with title `[public #N] <title>`, body with metadata and delimiters, and a mapping comment on the public issue linking to the private one.
-- **Issue edited** — updates private title and body (only the public section between delimiters).
-- **Comment created/edited/deleted** — mirrors to private, with edits updating in-place and deletes replaced by a tombstone.
-- **Labels added/removed** — mirrored 1:1 into private, auto-creating labels as needed.
-- **Issue closed/reopened** — adds/removes `public:closed` and `public:closed-by-reporter` labels on the private issue, plus an audit comment. Does not change private open/closed state.
+From any private mirrored issue, you can post updates to the public issue:
 
-### Private to public (selective)
+### `/public <message>`
 
-- **`/public <message>`** — posts `<message>` as a comment on the mapped public issue.
-- **`/public-close <resolution> [note]`** — closes both private and public issues with a resolution. The `<resolution>` argument must be one of the configured keys (see [Resolution labels](#resolution-labels) below). If `[note]` is provided it is posted on the public issue; otherwise a default note for that resolution is used.
-- **Private issue closed** — if exactly one resolution label is present, closes the public issue with the corresponding default note. Otherwise, applies `needs-public-resolution` and nudges.
-- **Private issue reopened** — removes resolution and `needs-public-resolution` labels.
-- **Private label changes** — mirrored to public only if that label already exists on the public repo (the public label set acts as an implicit allowlist).
+Posts `<message>` as a comment on the public issue and acknowledges in private with a link.
 
-## Prerequisites
+### `/public-close <resolution> [note]`
 
-- Python >= 3.10
-- A [GitHub App](https://docs.github.com/en/apps) with **Issues: read/write** and **Metadata: read** permissions, installed on both repos.
+Closes both the private and public issues. `<resolution>` must be one of the configured [resolution labels](#resolution-labels). If `[note]` is given, it is posted on the public issue; otherwise the default note for that resolution is used.
+
+Example:
+```
+/public-close fixed We shipped a fix in v2.1, thanks for the report!
+```
+
+## Closing behavior
+
+When a private issue is closed:
+- With **exactly one** resolution label &rarr; the public issue is closed with the corresponding default note.
+- With **zero or multiple** resolution labels &rarr; a `needs-public-resolution` label is applied and a comment explains what to do.
+
+When a private issue is reopened, resolution and `needs-public-resolution` labels are removed.
+
+## Resolution labels
+
+Resolution labels control `/public-close` and the automatic close behavior. Each has four parts:
+
+- **key** &mdash; the argument to `/public-close` (e.g. `fixed`, `wontfix`)
+- **label** &mdash; the private-repo label applied (e.g. `external:fixed`)
+- **note** &mdash; the default message posted on the public issue
+- **state_reason** &mdash; the GitHub close reason (`completed` or `not_planned`)
+
+Defaults:
+
+| Key | Label | Default public note | State reason |
+|-----|-------|---------------------|--------------|
+| `fixed` | `external:fixed` | Fixed on main. Thanks for the report. If you still see this after updating, please comment here with details. | `completed` |
+| `wontfix` | `external:wontfix` | Closing as not planned at this time. Thanks for taking the time to report it. | `not_planned` |
+| `duplicate` | `external:duplicate` | Closing as a duplicate. Please follow the linked issue for updates. | `completed` |
+| `cannot-reproduce` | `external:cannot-reproduce` | We could not reproduce this with the information available. If you can share steps/logs, we can reopen. | `completed` |
+
+These are set explicitly in the workflow templates (`RESOLUTION_LABELS` in the `env:` block of each `handle-*.yml`). To customize, edit them there or set `RESOLUTION_LABELS` as JSON:
+
+```json
+{
+  "fixed":            {"label": "external:fixed",            "note": "Custom note.",  "state_reason": "completed"},
+  "wontfix":          {"label": "external:wontfix",          "note": "Custom note.",  "state_reason": "not_planned"},
+  "duplicate":        {"label": "external:duplicate",        "note": "Custom note.",  "state_reason": "completed"},
+  "cannot-reproduce": {"label": "external:cannot-reproduce", "note": "Custom note.",  "state_reason": "completed"}
+}
+```
 
 ## Setup
 
+### Prerequisites
+
+- A [GitHub App](https://docs.github.com/en/apps) with **Issues: read/write** and **Metadata: read** permissions, installed on both repos.
+- Python >= 3.10 (used by the GitHub Actions workflows)
+
 ### 1. Install workflows
 
-**Public repo** — copy `workflows/public-dispatch.yml` to `.github/workflows/`.
+**Public repo** &mdash; copy `workflows/public-dispatch.yml` to `.github/workflows/`.
 
-**Private repo** — copy these to `.github/workflows/`:
+**Private repo** &mdash; copy these to `.github/workflows/`:
 - `workflows/handle-public-event.yml`
 - `workflows/handle-private-issue.yml`
 - `workflows/handle-private-comment.yml`
@@ -57,44 +99,15 @@ Set these as repository variables and secrets (or at the organization level):
 
 ### 3. Optional configuration
 
-These environment variables can be set in the workflow files to customize behavior:
+These environment variables can be set in the workflow files:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RESOLUTION_LABELS` | *(see below)* | JSON mapping of resolution keys to labels/notes |
+| `RESOLUTION_LABELS` | *(see above)* | JSON mapping of resolution keys to labels/notes |
 | `MAPPING_COMMENT_TEMPLATE` | `Internal tracking: {private_repo}#{private_issue_number}` | Template for the public mapping comment |
 | `CLOSED_LABEL` | `public:closed` | Label applied to private issue when public is closed |
 | `CLOSED_BY_REPORTER_LABEL` | `public:closed-by-reporter` | Label applied when original reporter closes |
 | `NEEDS_RESOLUTION_LABEL` | `needs-public-resolution` | Label applied when private is closed without a resolution |
-
-#### Resolution labels
-
-Resolution labels control the `/public-close` command and the automatic close-on-private-close behavior. Each resolution has three parts:
-
-- **key** — the argument passed to `/public-close` (e.g. `/public-close fixed We shipped a fix`)
-- **label** — the private-repo label that gets applied (e.g. `external:fixed`)
-- **note** — the default message posted on the public issue when no custom note is given
-- **state_reason** — the GitHub `state_reason` set when closing the public issue (`completed` or `not_planned`)
-
-The defaults are:
-
-| Key | Label | Default public note | State reason |
-|-----|-------|---------------------|--------------|
-| `fixed` | `external:fixed` | Fixed on main. Thanks for the report. If you still see this after updating, please comment here with details. | `completed` |
-| `wontfix` | `external:wontfix` | Closing as not planned at this time. Thanks for taking the time to report it. | `not_planned` |
-| `duplicate` | `external:duplicate` | Closing as a duplicate. Please follow the linked issue for updates. | `completed` |
-| `cannot-reproduce` | `external:cannot-reproduce` | We could not reproduce this with the information available. If you can share steps/logs, we can reopen. | `completed` |
-
-These are set explicitly in the workflow templates (see `RESOLUTION_LABELS` in the `env:` block of each `handle-*.yml`). To customize, edit them there or override via the `RESOLUTION_LABELS` environment variable with JSON:
-
-```json
-{
-  "fixed":            {"label": "external:fixed",            "note": "Custom note here.",  "state_reason": "completed"},
-  "wontfix":          {"label": "external:wontfix",          "note": "Custom note.",       "state_reason": "not_planned"},
-  "duplicate":        {"label": "external:duplicate",        "note": "Closing as a dupe.", "state_reason": "completed"},
-  "cannot-reproduce": {"label": "external:cannot-reproduce", "note": "Could not repro.",   "state_reason": "completed"}
-}
-```
 
 ## Development
 
@@ -111,24 +124,13 @@ This project follows [Conventional Commits](https://www.conventionalcommits.org/
 
 ```
 <type>[optional scope]: <description>
-
-[optional body]
-
-[optional footer(s)]
 ```
 
 Common types: `feat`, `fix`, `docs`, `test`, `refactor`, `ci`, `chore`.
 
 ## Design
 
-See [plan.md](plan.md) for the full specification, including architecture decisions, mapping/idempotency strategy, failure handling, and rollout plan.
-
-### Key design properties
-
-- **No external state** — all mapping lives in GitHub issue comments and bodies via HTML comment markers.
-- **Idempotent** — never creates duplicate private issues. A 3-step lookup (mapping comment, fallback body search, create) with self-healing ensures recovery from partial failures.
-- **Loop-safe** — all events from the bot's own identity are ignored.
-- **Concurrency-safe** — GitHub Actions concurrency groups keyed by issue `node_id` serialize events per issue.
+See [plan.md](plan.md) for the full specification.
 
 ## License
 
