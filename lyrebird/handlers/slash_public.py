@@ -28,6 +28,21 @@ def handle(client: Github, config: Config, payload: dict) -> None:
     if not message:
         return
 
+    is_anon = False
+    if message.startswith("--anon "):
+        is_anon = True
+        message = message[7:].strip()
+    elif message == "--anon":
+        is_anon = True
+        message = ""
+
+    if not message:
+        return
+
+    if not is_anon:
+        sender = payload.get("sender", {}).get("login", "unknown")
+        message = f"**@{sender}**:\n\n{message}"
+
     # Find mapped public issue from private issue body
     issue_body = issue.get("body") or ""
     markers = parse_private_body_markers(issue_body)

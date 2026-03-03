@@ -95,7 +95,21 @@ def handle(client: Github, config: Config, payload: dict) -> None:
     pub_repo = client.get_repo(config.public_repo)
     pub_issue = pub_repo.get_issue(public_number)
 
-    public_note = note if note else config.resolution_note(resolution_key)
+    if note:
+        # Custom note: attribute by default, --anon to opt out
+        is_anon = note.startswith("--anon")
+        if is_anon:
+            note = note[len("--anon"):].strip()
+
+        public_note = note if note else config.resolution_note(resolution_key)
+
+        if not is_anon and note:
+            sender = payload.get("sender", {}).get("login", "unknown")
+            public_note = f"**@{sender}**:\n\n{public_note}"
+    else:
+        # No custom note: use default resolution note, no attribution
+        public_note = config.resolution_note(resolution_key)
+
     public_comment = pub_issue.create_comment(public_note)
 
     # Step 5: Close public issue (if not already closed)

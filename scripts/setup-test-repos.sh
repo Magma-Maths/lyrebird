@@ -91,7 +91,7 @@ fi
 
 echo "==> Creating repos..."
 
-gh repo create "$PUBLIC_REPO" --public --description "Lyrebird test (public side)"
+gh repo create "$PUBLIC_REPO" --private --description "Lyrebird test (public side)"
 echo "  Created $PUBLIC_REPO"
 
 gh repo create "$PRIVATE_REPO" --private --description "Lyrebird test (private side)"

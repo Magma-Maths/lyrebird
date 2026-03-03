@@ -18,11 +18,15 @@ From any private mirrored issue, you can post updates to the public issue:
 
 ### `/public <message>`
 
-Posts `<message>` as a comment on the public issue and acknowledges in private with a link.
+Posts `<message>` as a comment on the public issue and acknowledges in private with a link. By default, Lyrebird will attribute the message to you (e.g. `**@your-username**: <message>`). If you wish to post completely anonymously, use the `--anon` flag:
+`/public --anon <message>`
 
 ### `/public-close <resolution> [note]`
 
-Closes both the private and public issues. `<resolution>` must be one of the configured [resolution labels](#resolution-labels). If `[note]` is given, it is posted on the public issue; otherwise the default note for that resolution is used.
+Closes both the private and public issues. `<resolution>` must be one of the configured [resolution labels](#resolution-labels). If `[note]` is given, it is posted on the public issue; otherwise the default note for that resolution is used. Like `/public`, a custom note will be attributed to you unless you use the `--anon` flag before your note:
+`/public-close fixed --anon We shipped a fix in v2.1, thanks for the report!`
+
+*(Note: If no custom note is provided, the generic default message is used and is never attributed).*
 
 Example:
 ```

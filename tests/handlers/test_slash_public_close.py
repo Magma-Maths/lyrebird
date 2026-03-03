@@ -63,9 +63,18 @@ def test_full_close_flow(config, mock_client):
     # Should close private
     priv_issue.edit.assert_any_call(state="closed")
     # Should post note on public
-    pub_issue.create_comment.assert_called_once_with("This has been fixed")
+    pub_issue.create_comment.assert_called_once_with("**@engineer**:\n\nThis has been fixed")
     # Should close public
     pub_issue.edit.assert_called_once_with(state="closed", state_reason="completed")
+
+
+def test_full_close_flow_anonymous(config, mock_client):
+    payload = _make_payload("/public-close fixed --anon This has been fixed")
+    priv_issue, pub_issue, _, _ = _setup_mocks(config, mock_client)
+
+    handle(mock_client, config, payload)
+
+    pub_issue.create_comment.assert_called_once_with("This has been fixed")
 
 
 def test_invalid_resolution(config, mock_client):
@@ -87,10 +96,11 @@ def test_default_note_when_no_custom_note(config, mock_client):
 
     handle(mock_client, config, payload)
 
-    # Should use default note from config
+    # Should use default note from config without attribution
     pub_issue.create_comment.assert_called_once()
     note = pub_issue.create_comment.call_args[0][0]
     assert "Fixed on main" in note
+    assert "**@engineer**:" not in note
 
 
 def test_normalizes_resolution_labels(config, mock_client):
