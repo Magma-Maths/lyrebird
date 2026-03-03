@@ -51,4 +51,13 @@ jobs:
           EVENT_ACTION: ${{ github.event.action }}
           EVENT_SOURCE: private
           EVENT_PAYLOAD: ${{ toJson(github.event) }}
+          # Resolution labels: maps resolution key → private label, public
+          # close note, and GitHub state_reason.  Customise as needed.
+          RESOLUTION_LABELS: >-
+            {
+              "fixed":            {"label": "external:fixed",            "note": "Fixed on main. Thanks for the report. If you still see this after updating, please comment here with details.", "state_reason": "completed"},
+              "wontfix":          {"label": "external:wontfix",          "note": "Closing as not planned at this time. Thanks for taking the time to report it.",                               "state_reason": "not_planned"},
+              "duplicate":        {"label": "external:duplicate",        "note": "Closing as a duplicate. Please follow the linked issue for updates.",                                         "state_reason": "completed"},
+              "cannot-reproduce": {"label": "external:cannot-reproduce", "note": "We could not reproduce this with the information available. If you can share steps/logs, we can reopen.",      "state_reason": "completed"}
+            }
         run: python -m lyrebird

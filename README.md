@@ -19,8 +19,8 @@ All mapping state lives in GitHub itself (HTML comment markers in issue bodies a
 ### Private to public (selective)
 
 - **`/public <message>`** — posts `<message>` as a comment on the mapped public issue.
-- **`/public-close <resolution> [note]`** — normalizes resolution labels, closes both private and public issues, and posts the note (or a default message) on the public issue.
-- **Private issue closed** — if exactly one resolution label is present, closes the public issue with a default note. Otherwise, applies `needs-public-resolution` and nudges.
+- **`/public-close <resolution> [note]`** — closes both private and public issues with a resolution. The `<resolution>` argument must be one of the configured keys (see [Resolution labels](#resolution-labels) below). If `[note]` is provided it is posted on the public issue; otherwise a default note for that resolution is used.
+- **Private issue closed** — if exactly one resolution label is present, closes the public issue with the corresponding default note. Otherwise, applies `needs-public-resolution` and nudges.
 - **Private issue reopened** — removes resolution and `needs-public-resolution` labels.
 - **Private label changes** — mirrored to public only if that label already exists on the public repo (the public label set acts as an implicit allowlist).
 
@@ -67,21 +67,32 @@ These environment variables can be set in the workflow files to customize behavi
 | `CLOSED_BY_REPORTER_LABEL` | `public:closed-by-reporter` | Label applied when original reporter closes |
 | `NEEDS_RESOLUTION_LABEL` | `needs-public-resolution` | Label applied when private is closed without a resolution |
 
-#### Default resolution labels
+#### Resolution labels
+
+Resolution labels control the `/public-close` command and the automatic close-on-private-close behavior. Each resolution has three parts:
+
+- **key** — the argument passed to `/public-close` (e.g. `/public-close fixed We shipped a fix`)
+- **label** — the private-repo label that gets applied (e.g. `external:fixed`)
+- **note** — the default message posted on the public issue when no custom note is given
+- **state_reason** — the GitHub `state_reason` set when closing the public issue (`completed` or `not_planned`)
+
+The defaults are:
 
 | Key | Label | Default public note | State reason |
-|-----|-------|-------------------|--------------|
+|-----|-------|---------------------|--------------|
 | `fixed` | `external:fixed` | Fixed on main. Thanks for the report. If you still see this after updating, please comment here with details. | `completed` |
 | `wontfix` | `external:wontfix` | Closing as not planned at this time. Thanks for taking the time to report it. | `not_planned` |
 | `duplicate` | `external:duplicate` | Closing as a duplicate. Please follow the linked issue for updates. | `completed` |
 | `cannot-reproduce` | `external:cannot-reproduce` | We could not reproduce this with the information available. If you can share steps/logs, we can reopen. | `completed` |
 
-To customize, set `RESOLUTION_LABELS` as JSON:
+These are set explicitly in the workflow templates (see `RESOLUTION_LABELS` in the `env:` block of each `handle-*.yml`). To customize, edit them there or override via the `RESOLUTION_LABELS` environment variable with JSON:
 
 ```json
 {
-  "fixed": {"label": "external:fixed", "note": "Custom note here.", "state_reason": "completed"},
-  "wontfix": {"label": "external:wontfix", "note": "Custom note.", "state_reason": "not_planned"}
+  "fixed":            {"label": "external:fixed",            "note": "Custom note here.",  "state_reason": "completed"},
+  "wontfix":          {"label": "external:wontfix",          "note": "Custom note.",       "state_reason": "not_planned"},
+  "duplicate":        {"label": "external:duplicate",        "note": "Closing as a dupe.", "state_reason": "completed"},
+  "cannot-reproduce": {"label": "external:cannot-reproduce", "note": "Could not repro.",   "state_reason": "completed"}
 }
 ```
 
