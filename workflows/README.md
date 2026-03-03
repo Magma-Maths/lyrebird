@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-1. A GitHub App with **Issues: read/write** and **Metadata: read** permissions, installed on both the public and private repos.
+1. A GitHub App with **Actions: read/write**, **Issues: read/write**, and **Metadata: read** permissions, installed on both the public and private repos.
 2. The public and private repositories.
 
 ## Repository Variables & Secrets

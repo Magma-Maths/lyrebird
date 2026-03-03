@@ -70,7 +70,7 @@ These are set explicitly in the workflow templates (`RESOLUTION_LABELS` in the `
 
 ### Prerequisites
 
-- A [GitHub App](https://docs.github.com/en/apps) with **Issues: read/write** and **Metadata: read** permissions, installed on both repos.
+- A [GitHub App](https://docs.github.com/en/apps) with **Actions: read/write**, **Issues: read/write**, and **Metadata: read** permissions, installed on both repos.
 - Python >= 3.10 (used by the GitHub Actions workflows)
 
 ### 1. Install workflows

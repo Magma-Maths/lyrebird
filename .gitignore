@@ -5,3 +5,5 @@ dist/
 build/
 .venv/
 .pytest_cache/
+scripts/.env
+*.pem

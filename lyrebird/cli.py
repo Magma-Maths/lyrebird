@@ -50,14 +50,6 @@ def main() -> None:
     action = os.environ.get("EVENT_ACTION", "")
     source = os.environ.get("EVENT_SOURCE", "public")
 
-    # For repository_dispatch, unwrap client_payload
-    if event_name == "repository_dispatch":
-        client_payload = payload.get("client_payload", {})
-        event_name = client_payload.get("event_name", "")
-        action = client_payload.get("action", "")
-        payload = client_payload.get("event", {})
-        source = "public"
-
     if not event_name or not action:
         logger.error("EVENT_NAME and EVENT_ACTION are required")
         sys.exit(1)

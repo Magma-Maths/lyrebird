@@ -1,16 +1,28 @@
 # Install in the PRIVATE repo at .github/workflows/handle-public-event.yml
 #
-# Receives forwarded public events via repository_dispatch and runs
+# Receives forwarded public events via workflow_dispatch and runs
 # the appropriate lyrebird handler.
 
 name: Handle public event
 
 on:
-  repository_dispatch:
-    types: [public_event]
+  workflow_dispatch:
+    inputs:
+      event_name:
+        description: 'The original event name (e.g., issues, issue_comment)'
+        required: true
+        type: string
+      action:
+        description: 'The original event action (e.g., opened, created)'
+        required: true
+        type: string
+      event:
+        description: 'The full event payload from the public repo'
+        required: true
+        type: string
 
 concurrency:
-  group: public-issue-${{ github.event.client_payload.event.issue.node_id }}
+  group: public-event
   cancel-in-progress: false
 
 jobs:
@@ -46,10 +58,10 @@ jobs:
           PUBLIC_REPO: ${{ vars.PUBLIC_REPO }}
           PRIVATE_REPO: ${{ vars.PRIVATE_REPO }}
           BOT_LOGIN: ${{ vars.BOT_LOGIN }}
-          EVENT_NAME: repository_dispatch
-          EVENT_ACTION: public_event
+          EVENT_NAME: ${{ inputs.event_name }}
+          EVENT_ACTION: ${{ inputs.action }}
           EVENT_SOURCE: public
-          EVENT_PAYLOAD: ${{ toJson(github.event) }}
+          EVENT_PAYLOAD: ${{ inputs.event }}
           # Resolution labels: maps resolution key → private label, public
           # close note, and GitHub state_reason.  Customise as needed.
           RESOLUTION_LABELS: >-
