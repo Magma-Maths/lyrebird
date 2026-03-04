@@ -59,7 +59,7 @@ def test_one_resolution_label_closes_public(config, mock_client):
     # Should post note and close public
     pub_issue.create_comment.assert_called_once()
     note = pub_issue.create_comment.call_args[0][0]
-    assert "Fixed on main" in note
+    assert "has been fixed" in note
     pub_issue.edit.assert_called_once()
 
 

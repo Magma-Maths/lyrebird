@@ -21,7 +21,7 @@ def config():
         private_repo="testorg/private-repo",
         bot_login="lyrebird[bot]",
         resolution_labels={
-            "completed": ("external:completed", "Fixed on main. Thanks for the report.", "completed"),
+            "completed": ("external:completed", "This has been fixed and will be available in the next update. Thanks for the report.", "completed"),
             "not-planned": ("external:not-planned", "Closing as not planned.", "not_planned"),
             "cannot-reproduce": (
                 "external:cannot-reproduce",

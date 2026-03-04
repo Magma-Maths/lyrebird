@@ -54,7 +54,7 @@ Defaults:
 
 | Key | Label | Default public note | State reason |
 |-----|-------|---------------------|--------------|
-| `completed` | `external:completed` | Fixed on main. Thanks for the report. If you still see this after updating, please comment here with details. | `completed` |
+| `completed` | `external:completed` | This has been fixed and will be available in the next update. Thanks for the report. If you still see this after updating, please comment here with details. | `completed` |
 | `not-planned` | `external:not-planned` | Closing as not planned at this time. Thanks for taking the time to report it. | `not_planned` |
 | `cannot-reproduce` | `external:cannot-reproduce` | We could not reproduce this with the information available. If you can share steps/logs, we can reopen. | `not_planned` |
 

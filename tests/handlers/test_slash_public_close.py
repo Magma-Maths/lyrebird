@@ -99,7 +99,7 @@ def test_default_note_when_no_custom_note(config, mock_client):
     # Should use default note from config without attribution
     pub_issue.create_comment.assert_called_once()
     note = pub_issue.create_comment.call_args[0][0]
-    assert "Fixed on main" in note
+    assert "has been fixed" in note
     assert "**@engineer**:" not in note
 
 

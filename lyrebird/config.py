@@ -10,7 +10,8 @@ from dataclasses import dataclass, field
 # Default public close notes keyed by resolution key.
 DEFAULT_RESOLUTION_NOTES: dict[str, tuple[str, str | None]] = {
     "completed": (
-        "Fixed on main. Thanks for the report. "
+        "This has been fixed and will be available in the next update. "
+        "Thanks for the report. "
         "If you still see this after updating, please comment here with details.",
         "completed",
     ),
