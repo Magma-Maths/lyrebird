@@ -54,6 +54,19 @@ def handle(client: Github, config: Config, payload: dict) -> None:
         public_issue["number"],
     )
 
+    # Mirror issue type if present (PyGithub doesn't support this natively)
+    issue_type = (public_issue.get("type") or {}).get("name")
+    if issue_type:
+        try:
+            client._Github__requester.requestJsonAndCheck(
+                "PATCH",
+                private_issue.url,
+                input={"type": issue_type},
+            )
+            logger.info("Set issue type '%s' on private #%d", issue_type, private_issue.number)
+        except Exception:
+            logger.warning("Could not set issue type '%s' on private #%d", issue_type, private_issue.number)
+
     # Post mapping comment on public issue (only after private creation succeeds)
     pub_repo = client.get_repo(config.public_repo)
     pub_issue = pub_repo.get_issue(public_issue["number"])
