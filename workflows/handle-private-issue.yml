@@ -6,7 +6,7 @@ name: Handle private issue events
 
 on:
   issues:
-    types: [closed, reopened, labeled, unlabeled]
+    types: [closed, reopened, labeled, unlabeled, typed, untyped]
 
 concurrency:
   group: private-issue-${{ github.event.issue.node_id }}

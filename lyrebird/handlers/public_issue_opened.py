@@ -7,6 +7,7 @@ import logging
 from github import Github
 
 from lyrebird.config import Config
+from lyrebird.handlers._set_issue_type import set_issue_type
 from lyrebird.mapping import (
     build_mapping_comment,
     build_private_issue_body,
@@ -54,18 +55,10 @@ def handle(client: Github, config: Config, payload: dict) -> None:
         public_issue["number"],
     )
 
-    # Mirror issue type if present (PyGithub doesn't support this natively)
+    # Mirror issue type if present
     issue_type = (public_issue.get("type") or {}).get("name")
     if issue_type:
-        try:
-            client._Github__requester.requestJsonAndCheck(
-                "PATCH",
-                private_issue.url,
-                input={"type": issue_type},
-            )
-            logger.info("Set issue type '%s' on private #%d", issue_type, private_issue.number)
-        except Exception:
-            logger.warning("Could not set issue type '%s' on private #%d", issue_type, private_issue.number)
+        set_issue_type(client, private_issue, issue_type)
 
     # Post mapping comment on public issue (only after private creation succeeds)
     pub_repo = client.get_repo(config.public_repo)

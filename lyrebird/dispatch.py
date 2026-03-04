@@ -11,6 +11,7 @@ from lyrebird.config import Config
 from lyrebird.handlers import (
     private_issue_closed,
     private_issue_reopened,
+    private_issue_typed,
     private_labels_changed,
     public_comment_created,
     public_comment_deleted,
@@ -48,6 +49,7 @@ PUBLIC_ROUTES: dict[tuple[str, str], Handler] = {
     ("issues", "closed"): public_issue_state.handle,
     ("issues", "reopened"): public_issue_state.handle,
     ("issues", "typed"): public_issue_typed.handle,
+    ("issues", "untyped"): public_issue_typed.handle,
     ("issue_comment", "created"): public_comment_created.handle,
     ("issue_comment", "edited"): public_comment_edited.handle,
     ("issue_comment", "deleted"): public_comment_deleted.handle,
@@ -58,6 +60,8 @@ PRIVATE_ROUTES: dict[tuple[str, str], Handler] = {
     ("issues", "reopened"): private_issue_reopened.handle,
     ("issues", "labeled"): private_labels_changed.handle,
     ("issues", "unlabeled"): private_labels_changed.handle,
+    ("issues", "typed"): private_issue_typed.handle,
+    ("issues", "untyped"): private_issue_typed.handle,
     ("issue_comment", "created"): _route_private_comment,
 }
 
