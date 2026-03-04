@@ -3,7 +3,7 @@
 # Copies labels from one repo to another.
 #
 # Usage:
-#   ./scripts/sync-labels.sh <source-repo> <target-repo> [label-pattern]
+#   ./scripts/sync-labels.sh <source-repo> <target-repo> [label-pattern] [--force]
 #
 # Examples:
 #   # Copy all labels
@@ -15,18 +15,33 @@
 #   # Copy labels starting with "priority:"
 #   ./scripts/sync-labels.sh yourorg/public-repo yourorg/private-repo "^priority:"
 #
-# Existing labels in the target are skipped (not overwritten).
+#   # Overwrite existing labels (update color and description)
+#   ./scripts/sync-labels.sh yourorg/public-repo yourorg/private-repo --force
+#
+# By default, existing labels in the target are skipped.
+# With --force, existing labels are updated to match the source.
 
 set -euo pipefail
 
-if [[ $# -lt 2 ]]; then
-    echo "Usage: $0 <source-repo> <target-repo> [label-pattern]"
+FORCE=false
+PATTERN=""
+POSITIONAL=()
+
+for arg in "$@"; do
+    case "$arg" in
+        --force) FORCE=true ;;
+        *) POSITIONAL+=("$arg") ;;
+    esac
+done
+
+if [[ ${#POSITIONAL[@]} -lt 2 ]]; then
+    echo "Usage: $0 <source-repo> <target-repo> [label-pattern] [--force]"
     exit 1
 fi
 
-SOURCE="$1"
-TARGET="$2"
-PATTERN="${3:-}"
+SOURCE="${POSITIONAL[0]}"
+TARGET="${POSITIONAL[1]}"
+PATTERN="${POSITIONAL[2]:-}"
 
 # Fetch all labels from source
 echo "Fetching labels from $SOURCE..."
@@ -45,6 +60,10 @@ fi
 echo "Labels to copy ($COUNT):"
 echo "$LABELS" | jq -r '.[].name' | sed 's/^/  /'
 echo
+if [[ "$FORCE" == true ]]; then
+    echo "(--force: existing labels will be updated)"
+    echo
+fi
 read -rp "Copy these to $TARGET? [y/N] " confirm
 if [[ "${confirm,,}" != "y" ]]; then
     echo "Aborted."
@@ -54,25 +73,23 @@ fi
 # Fetch existing labels in target
 EXISTING=$(gh label list --repo "$TARGET" --limit 200 --json name | jq -r '.[].name')
 
-CREATED=0
-SKIPPED=0
-
 echo "$LABELS" | jq -c '.[]' | while read -r label; do
     NAME=$(echo "$label" | jq -r '.name')
     COLOR=$(echo "$label" | jq -r '.color')
     DESC=$(echo "$label" | jq -r '.description // ""')
 
-    if echo "$EXISTING" | grep -qxF "$NAME"; then
-        echo "  skip: $NAME (already exists)"
-        SKIPPED=$((SKIPPED + 1))
+    ARGS=(--repo "$TARGET" --color "$COLOR")
+    if [[ -n "$DESC" ]]; then
+        ARGS+=(--description "$DESC")
+    fi
+    if [[ "$FORCE" == true ]]; then
+        ARGS+=(--force)
+    fi
+
+    if gh label create "$NAME" "${ARGS[@]}" 2>/dev/null; then
+        echo "  ok: $NAME"
     else
-        if [[ -n "$DESC" ]]; then
-            gh label create "$NAME" --repo "$TARGET" --color "$COLOR" --description "$DESC"
-        else
-            gh label create "$NAME" --repo "$TARGET" --color "$COLOR"
-        fi
-        echo "  created: $NAME"
-        CREATED=$((CREATED + 1))
+        echo "  skip: $NAME (already exists)"
     fi
 done
 
