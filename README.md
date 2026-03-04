@@ -70,46 +70,7 @@ These are set explicitly in the workflow templates (`RESOLUTION_LABELS` in the `
 
 ## Setup
 
-### Prerequisites
-
-- A [GitHub App](https://docs.github.com/en/apps) with **Actions: read/write**, **Issues: read/write**, and **Metadata: read** permissions, installed on both repos.
-- Python >= 3.10 (used by the GitHub Actions workflows)
-
-### 1. Install workflows
-
-**Public repo** &mdash; copy `workflows/public-dispatch.yml` to `.github/workflows/`.
-
-**Private repo** &mdash; copy these to `.github/workflows/`:
-- `workflows/handle-public-event.yml`
-- `workflows/handle-private-issue.yml`
-- `workflows/handle-private-comment.yml`
-
-### 2. Configure variables and secrets
-
-Set these as repository variables and secrets (or at the organization level):
-
-| Name | Type | Description |
-|------|------|-------------|
-| `LYREBIRD_APP_ID` | Variable | GitHub App ID |
-| `LYREBIRD_APP_PRIVATE_KEY` | Secret | GitHub App private key (PEM) |
-| `LYREBIRD_REPO` | Variable | This repo, e.g. `yourorg/lyrebird` |
-| `PUBLIC_REPO` | Variable | Full name of public repo, e.g. `yourorg/public-repo` |
-| `PUBLIC_REPO_NAME` | Variable | Short name, e.g. `public-repo` |
-| `PRIVATE_REPO` | Variable | Full name of private repo |
-| `PRIVATE_REPO_NAME` | Variable | Short name of private repo |
-| `BOT_LOGIN` | Variable | GitHub App bot login, e.g. `lyrebird[bot]` |
-
-### 3. Optional configuration
-
-These environment variables can be set in the workflow files:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `RESOLUTION_LABELS` | *(see above)* | JSON mapping of resolution keys to labels/notes |
-| `MAPPING_COMMENT_TEMPLATE` | `Internal tracking: {private_repo}#{private_issue_number}` | Template for the public mapping comment |
-| `CLOSED_LABEL` | `public:closed` | Label applied to private issue when public is closed |
-| `CLOSED_BY_REPORTER_LABEL` | `public:closed-by-reporter` | Label applied when original reporter closes |
-| `NEEDS_RESOLUTION_LABEL` | `needs-public-resolution` | Label applied when private is closed without a resolution |
+See [INSTALL.md](INSTALL.md) for full installation instructions.
 
 ## Development
 

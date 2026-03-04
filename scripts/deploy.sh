@@ -8,7 +8,8 @@
 #
 # Usage:
 #   cp scripts/.env.example scripts/.env   # fill in values for your real repos
-#   ./scripts/deploy.sh
+#   ./scripts/deploy.sh              # deploy via PRs
+#   ./scripts/deploy.sh --no-pr      # push directly to main
 #
 # Prerequisites:
 #   - gh CLI authenticated (gh auth login)
@@ -16,6 +17,11 @@
 #   - Both repos already exist
 
 set -euo pipefail
+
+USE_PR=true
+if [[ "${1:-}" == "--no-pr" ]]; then
+    USE_PR=false
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LYREBIRD_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -94,67 +100,62 @@ for REPO in "$PUBLIC_REPO" "$PRIVATE_REPO"; do
     gh secret set LYREBIRD_APP_PRIVATE_KEY --repo "$REPO" < "$PEM_FILE"
 done
 
-# ── Deploy workflow files via PRs ────────────────────────────────────────────
+# ── Deploy workflow files ────────────────────────────────────────────────────
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
-BRANCH="lyrebird/deploy-workflows"
 
 echo
 echo "==> Deploying workflow files..."
 
-# Public repo
-echo "  $PUBLIC_REPO"
-cd "$WORK"
-gh repo clone "$PUBLIC_REPO" public-clone -- -q
-cd public-clone
-git checkout -b "$BRANCH"
-mkdir -p .github/workflows
-cp "$LYREBIRD_DIR/workflows/public-dispatch.yml" .github/workflows/
-git add .github/workflows/public-dispatch.yml
-if git diff --cached --quiet; then
-    echo "    No changes (workflow already up to date)"
-else
-    git commit -q -m "ci: add lyrebird dispatch workflow"
-    git push -q -u origin "$BRANCH"
-    gh pr create --title "Add lyrebird dispatch workflow" --body "$(cat <<'EOF'
-Adds the public-dispatch workflow that forwards issue and comment events
-to the private repo for processing by lyrebird.
-EOF
-)"
-    echo "    PR created"
-fi
+deploy_workflows() {
+    local repo="$1"
+    local clone_dir="$2"
+    shift 2
+    local files=("$@")
 
-# Private repo
-echo "  $PRIVATE_REPO"
-cd "$WORK"
-gh repo clone "$PRIVATE_REPO" private-clone -- -q
-cd private-clone
-git checkout -b "$BRANCH"
-mkdir -p .github/workflows
-cp "$LYREBIRD_DIR/workflows/handle-public-event.yml"     .github/workflows/
-cp "$LYREBIRD_DIR/workflows/handle-private-issue.yml"    .github/workflows/
-cp "$LYREBIRD_DIR/workflows/handle-private-comment.yml"  .github/workflows/
-git add .github/workflows/
-if git diff --cached --quiet; then
-    echo "    No changes (workflows already up to date)"
-else
-    git commit -q -m "ci: add lyrebird handler workflows"
-    git push -q -u origin "$BRANCH"
-    gh pr create --title "Add lyrebird handler workflows" --body "$(cat <<'EOF'
-Adds the lyrebird handler workflows:
-- handle-public-event.yml — processes mirrored public events
-- handle-private-issue.yml — handles private issue close/reopen
-- handle-private-comment.yml — handles slash commands
-EOF
-)"
-    echo "    PR created"
-fi
+    echo "  $repo"
+    cd "$WORK"
+    gh repo clone "$repo" "$clone_dir" -- -q
+    cd "$clone_dir"
+
+    if [[ "$USE_PR" == true ]]; then
+        git checkout -b lyrebird/deploy-workflows
+    fi
+
+    mkdir -p .github/workflows
+    for f in "${files[@]}"; do
+        cp "$LYREBIRD_DIR/workflows/$f" .github/workflows/
+    done
+    git add .github/workflows/
+
+    if git diff --cached --quiet; then
+        echo "    No changes (workflows already up to date)"
+        return
+    fi
+
+    git commit -q -m "ci: add lyrebird workflows"
+
+    if [[ "$USE_PR" == true ]]; then
+        git push -q -u origin lyrebird/deploy-workflows
+        gh pr create --title "Add lyrebird workflows" --body "Deploys lyrebird workflow files."
+        echo "    PR created"
+    else
+        git push -q origin main
+        echo "    Pushed to main"
+    fi
+}
+
+deploy_workflows "$PUBLIC_REPO" public-clone \
+    public-dispatch.yml
+
+deploy_workflows "$PRIVATE_REPO" private-clone \
+    handle-public-event.yml \
+    handle-private-issue.yml \
+    handle-private-comment.yml
 
 # ── Done ─────────────────────────────────────────────────────────────────────
 
 echo
-echo "Done! Next steps:"
-echo "  1. Review and merge the PRs above"
-echo "  2. Make sure your GitHub App has access to both repos:"
-echo "     https://github.com/organizations/$ORG/settings/installations"
+echo "Done! Make sure your GitHub App has access to both repos:"
+echo "  https://github.com/organizations/$ORG/settings/installations"
