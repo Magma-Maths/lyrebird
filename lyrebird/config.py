@@ -42,7 +42,7 @@ class Config:
     )
 
     mapping_comment_template: str = (
-        "Internal tracking: {private_repo}#{private_issue_number}"
+        "Thanks for the report! Our team is tracking this and will post updates here."
     )
     closed_label: str = "public:closed"
     closed_by_reporter_label: str = "public:closed-by-reporter"
@@ -129,7 +129,7 @@ def load_config() -> Config:
         ),
         mapping_comment_template=os.environ.get(
             "MAPPING_COMMENT_TEMPLATE",
-            "Internal tracking: {private_repo}#{private_issue_number}",
+            "Thanks for the report! Our team is tracking this and will post updates here.",
         ),
         closed_label=os.environ.get("CLOSED_LABEL", "public:closed"),
         closed_by_reporter_label=os.environ.get(

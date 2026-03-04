@@ -66,7 +66,7 @@ def test_idempotent_when_mapping_exists(config, mock_client):
     # Mapping comment already exists
     mapping_comment = MagicMock()
     mapping_comment.body = (
-        "Internal tracking: testorg/private-repo#10\n\n"
+        "Thanks for the report! Our team is tracking this and will post updates here.\n\n"
         "<!-- mapping: public_issue_node_id=I_kwDOTest private_issue_number=10 -->"
     )
     mock_pub_issue_obj.get_comments.return_value = [mapping_comment]

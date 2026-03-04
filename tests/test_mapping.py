@@ -23,7 +23,7 @@ from tests.conftest import make_public_issue_payload
 
 def test_parse_mapping_comment_valid(config):
     text = (
-        "Internal tracking: testorg/private-repo#7\n\n"
+        "Thanks for the report! Our team is tracking this and will post updates here.\n\n"
         "<!-- mapping: public_issue_node_id=I_abc123 private_issue_number=7 -->"
     )
     result = parse_mapping_comment(text)
@@ -40,7 +40,7 @@ def test_parse_mapping_comment_invalid():
 
 def test_build_mapping_comment(config):
     text = build_mapping_comment(config, "I_abc", 5)
-    assert "testorg/private-repo#5" in text
+    assert "Thanks for the report" in text
     assert "public_issue_node_id=I_abc" in text
     assert "private_issue_number=5" in text
     # Should round-trip
@@ -140,7 +140,7 @@ def test_find_mapping_in_comments():
     c1.body = "just a normal comment"
     c2 = MagicMock()
     c2.body = (
-        "Internal tracking: org/repo#3\n\n"
+        "Thanks for the report! Our team is tracking this and will post updates here.\n\n"
         "<!-- mapping: public_issue_node_id=I_abc private_issue_number=3 -->"
     )
     result = find_mapping_in_comments([c1, c2])

@@ -113,7 +113,7 @@ These environment variables can be set in the workflow files to customize behavi
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `RESOLUTION_LABELS` | *(see README)* | JSON mapping of resolution keys to labels/notes |
-| `MAPPING_COMMENT_TEMPLATE` | `Internal tracking: {private_repo}#{private_issue_number}` | Template for the public mapping comment |
+| `MAPPING_COMMENT_TEMPLATE` | `Thanks for the report! Our team is tracking this and will post updates here.` | Template for the public mapping comment |
 | `CLOSED_LABEL` | `public:closed` | Label applied to private issue when public is closed |
 | `CLOSED_BY_REPORTER_LABEL` | `public:closed-by-reporter` | Label applied when original reporter closes |
 | `NEEDS_RESOLUTION_LABEL` | `needs-public-resolution` | Label applied when private is closed without a resolution |
