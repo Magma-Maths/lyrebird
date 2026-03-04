@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   handle:
+    if: github.repository == vars.PRIVATE_REPO
     runs-on: ubuntu-latest
     steps:
       - name: Checkout lyrebird

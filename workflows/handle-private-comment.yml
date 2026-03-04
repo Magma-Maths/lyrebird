@@ -15,7 +15,7 @@ concurrency:
 jobs:
   handle:
     # Only run if the comment looks like a slash command
-    if: startsWith(github.event.comment.body, '/public')
+    if: github.repository == vars.PRIVATE_REPO && startsWith(github.event.comment.body, '/public')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout lyrebird
