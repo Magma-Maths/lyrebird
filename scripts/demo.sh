@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 #
-# Interactive demo of Lyrebird features.
-# Walks through each feature step-by-step, pausing to let you verify.
+# Generates demo issues to showcase Lyrebird features.
+# Creates five separate issues, each demonstrating a different workflow.
+# Posts "announcer" comments on private issues before each action so the
+# timeline is self-explanatory for collaborators browsing the repos later.
 #
 # Usage:
 #   ./scripts/demo.sh [public-repo] [private-repo]
@@ -25,23 +27,8 @@ else
     exit 1
 fi
 
-print_links() {
-    echo
-    if [[ -n "${ISSUE_URL:-}" ]]; then
-        echo "  Public:  $ISSUE_URL"
-    else
-        echo "  Public:  https://github.com/$PUBLIC_REPO/issues"
-    fi
-    
-    if [[ -n "${PRIVATE_ISSUE_URL:-}" ]]; then
-        echo "  Private: $PRIVATE_ISSUE_URL"
-    else
-        echo "  Private: https://github.com/$PRIVATE_REPO/issues"
-    fi
-    echo
-}
-
 step() {
+    echo
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "  $1"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -49,24 +36,47 @@ step() {
 
 wait_for_run() {
     local repo="$1"
-    echo "  Waiting for workflow to complete on $repo..."
+    echo "  Waiting for workflow on $repo..."
     sleep 5
-    # Wait for the most recent run to finish
-    for i in $(seq 1 24); do
+    for _ in $(seq 1 24); do
         STATUS=$(gh run list --repo "$repo" --limit 1 --json status --jq '.[0].status' 2>/dev/null || echo "unknown")
         if [[ "$STATUS" == "completed" ]]; then
             CONCLUSION=$(gh run list --repo "$repo" --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "unknown")
             if [[ "$CONCLUSION" == "success" ]]; then
-                echo "  ✓ Workflow completed successfully"
+                echo "  ✓ Done"
             else
-                echo "  ✗ Workflow completed with: $CONCLUSION"
-                echo "  Check: gh run list --repo $repo --limit 1"
+                echo "  ✗ Workflow failed: $CONCLUSION"
+                echo "    gh run list --repo $repo --limit 1"
             fi
             return
         fi
         sleep 5
     done
-    echo "  ⚠ Timed out waiting for workflow (2 min). Check manually."
+    echo "  ⚠ Timed out (2 min). Check manually."
+}
+
+find_private_issue() {
+    local pub_num="$1"
+    for _ in $(seq 1 3); do
+        local num
+        num=$(gh issue list --repo "$PRIVATE_REPO" --search "[public #$pub_num]" --json number --jq '.[0].number' 2>/dev/null || echo "")
+        if [[ -n "$num" ]]; then
+            echo "$num"
+            return
+        fi
+        sleep 3
+    done
+    echo ""
+}
+
+announce() {
+    local priv_num="$1"
+    local message="$2"
+    echo "  📢 $message"
+    gh issue comment "$priv_num" \
+        --repo "$PRIVATE_REPO" \
+        --body "**🔔 Demo narrator:** $message" \
+        >/dev/null 2>&1
 }
 
 echo
@@ -74,259 +84,394 @@ echo "Lyrebird Demo Generator"
 echo "======================="
 echo "  Public repo:  $PUBLIC_REPO"
 echo "  Private repo: $PRIVATE_REPO"
-echo "  Running non-interactive script to populate repos..."
+echo
+echo "  This will create 5 demo issues to showcase Lyrebird's features."
 echo
 sleep 3
 
-# ── 1. Create a public issue ────────────────────────────────────────────────
-
-step "1. Create a public issue → should be mirrored to private"
-
-ISSUE_URL=$(gh issue create \
-    --repo "$PUBLIC_REPO" \
-    --title "Demo: something is broken" \
-    --body "Steps to reproduce:
-1. Do X
-2. See error Y
-
-Expected: Z should happen instead." \
-    2>&1)
-
-ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oP '\d+$')
-echo "  Created public issue #$ISSUE_NUM"
-echo "  $ISSUE_URL"
-
-wait_for_run "$PUBLIC_REPO"
-wait_for_run "$PRIVATE_REPO"
-
-echo "  Looking for private mirror..."
-PRIVATE_ISSUE_NUM=$(gh issue list --repo "$PRIVATE_REPO" --search "[public #$ISSUE_NUM]" --json number --jq '.[0].number' 2>/dev/null)
-if [[ -n "$PRIVATE_ISSUE_NUM" ]]; then
-    PRIVATE_ISSUE_URL="https://github.com/$PRIVATE_REPO/issues/$PRIVATE_ISSUE_NUM"
-    echo "  Found private issue #$PRIVATE_ISSUE_NUM"
-fi
-
-echo
-echo "  → Check the private repo: a mirrored issue should appear titled"
-echo "    '[public #$ISSUE_NUM] Demo: something is broken'"
-echo "  → Check the public issue: a welcome comment should appear"
-print_links
-
-# ── 2. Comment on the public issue ──────────────────────────────────────────
-
-step "2. Comment on public issue → should be mirrored to private"
-
-COMMENT_URL=$(gh issue comment "$ISSUE_NUM" \
-    --repo "$PUBLIC_REPO" \
-    --body "Here's some additional info: I'm running version 3.2.1 on macOS." \
-    2>&1)
-
-echo "  Posted comment on public #$ISSUE_NUM"
-
-wait_for_run "$PUBLIC_REPO"
-wait_for_run "$PRIVATE_REPO"
-
-echo
-echo "  → Check the private mirror: the comment should appear there too"
-print_links
-
-# ── 3. Edit the public issue ────────────────────────────────────────────────
-
-step "3. Edit the public issue title and body → private should update"
-
-gh issue edit "$ISSUE_NUM" \
-    --repo "$PUBLIC_REPO" \
-    --title "Demo: something is broken (updated)" \
-    --body "Steps to reproduce:
-1. Do X (updated steps)
-2. See error Y
-
-Expected: Z should happen instead.
-
-Environment: macOS 14, version 3.2.1"
-
-echo "  Edited public #$ISSUE_NUM"
-
-wait_for_run "$PUBLIC_REPO"
-wait_for_run "$PRIVATE_REPO"
-
-echo
-echo "  → Check the private mirror: title and body should be updated"
-print_links
-
-# ── 4. Add a label on the public issue ──────────────────────────────────────
-
-step "4. Add a label on public → should be mirrored to private"
-
-# Create the label first if it doesn't exist
+# Ensure "bug" label exists
 gh label create "bug" --repo "$PUBLIC_REPO" --color "d73a4a" --force 2>/dev/null || true
-gh issue edit "$ISSUE_NUM" --repo "$PUBLIC_REPO" --add-label "bug"
 
-echo "  Added 'bug' label to public #$ISSUE_NUM"
+# ═══════════════════════════════════════════════════════════════════════════
+# Issue 1: Bug report lifecycle
+#   Shows: mirroring, comments, edits, labels, type sync
+# ═══════════════════════════════════════════════════════════════════════════
+
+step "Issue 1: Bug report lifecycle"
+
+ISSUE1_URL=$(gh issue create \
+    --repo "$PUBLIC_REPO" \
+    --title "Bug: crash when loading large files" \
+    --body "When I try to load a file larger than 2GB, the application crashes with a segfault.
+
+**Steps to reproduce:**
+1. Open the application
+2. Go to File > Open
+3. Select a file larger than 2GB
+4. Application crashes
+
+**Expected:** The file should load, or show an error message.
+
+**Environment:** Linux, version 3.1.0" \
+    2>&1)
+ISSUE1_NUM=$(echo "$ISSUE1_URL" | grep -oP '\d+$')
+echo "  Created public #$ISSUE1_NUM: Bug report"
+echo "  $ISSUE1_URL"
 
 wait_for_run "$PUBLIC_REPO"
 wait_for_run "$PRIVATE_REPO"
 
-echo
-echo "  → Check the private mirror: 'bug' label should appear"
-print_links
-
-# ── 5. Delete a comment on the public issue ─────────────────────────────────
-
-step "5. Delete public comment → private becomes a tombstone"
-
-COMMENT_ID=$(echo "$COMMENT_URL" | grep -oP '\d+$')
-gh api -X DELETE "repos/$PUBLIC_REPO/issues/comments/$COMMENT_ID" --silent 2>/dev/null || echo "Could not delete comment"
-
-echo "  Deleted comment on public #$ISSUE_NUM"
-
-wait_for_run "$PUBLIC_REPO"
-wait_for_run "$PRIVATE_REPO"
-
-echo
-echo "  → Check the private mirror: the mirrored comment should now be a '(deleted on public at ...)' tombstone"
-print_links
-
-# ── 6. /public command from private ─────────────────────────────────────────
-
-step "6. Post /public from private → message appears on public issue"
-
-if [[ -z "${PRIVATE_ISSUE_NUM:-}" ]]; then
-    echo "  ⚠ Could not find private mirror. Skipping /public demo."
-    print_links
+PRIVATE1_NUM=$(find_private_issue "$ISSUE1_NUM")
+if [[ -z "$PRIVATE1_NUM" ]]; then
+    echo "  ⚠ Could not find private mirror. Skipping rest of Issue 1."
 else
-    gh issue comment "$PRIVATE_ISSUE_NUM" \
-        --repo "$PRIVATE_REPO" \
-        --body "/public Thanks for reporting this! We've identified the issue and are working on a fix."
+    echo "  Mirrored to private #$PRIVATE1_NUM"
 
-    echo "  Posted /public command on private #$PRIVATE_ISSUE_NUM"
+    # Comment
+    announce "$PRIVATE1_NUM" "A public user is posting additional debug info (a stack trace)."
+    gh issue comment "$ISSUE1_NUM" \
+        --repo "$PUBLIC_REPO" \
+        --body "I just tested with version 3.1.1 and the same crash happens. Here's the stack trace:
 
-    wait_for_run "$PRIVATE_REPO"
+\`\`\`
+Segfault at 0x7fff5fbff8e0
+  in load_file() at src/io/reader.c:142
+  in main() at src/main.c:58
+\`\`\`
 
-    echo
-    echo "  → Check the public issue: the message should appear (attributed to you)"
-    echo "  → Check the private issue: an acknowledgement with a link should appear"
-    print_links
-
-    # ── 7. /public --anon ────────────────────────────────────────────────────
-
-    step "7. Post /public --anon from private → anonymous message on public"
-
-    gh issue comment "$PRIVATE_ISSUE_NUM" \
-        --repo "$PRIVATE_REPO" \
-        --body "/public --anon We're still investigating. Will update soon."
-
-    echo "  Posted /public --anon on private #$PRIVATE_ISSUE_NUM"
-
-    wait_for_run "$PRIVATE_REPO"
-
-    echo
-    echo "  → Check the public issue: the message should appear WITHOUT your username"
-    print_links
-
-    # ── 8. Close the public issue ────────────────────────────────────────────
-
-    step "8. Close public issue → private gets 'public:closed' label"
-
-    gh issue close "$ISSUE_NUM" --repo "$PUBLIC_REPO"
-
-    echo "  Closed public #$ISSUE_NUM"
+This might be related to the mmap allocation."
 
     wait_for_run "$PUBLIC_REPO"
     wait_for_run "$PRIVATE_REPO"
+    echo "  ✓ Comment mirrored"
 
-    echo
-    echo "  → Check private mirror: should have 'public:closed' label + audit comment"
-    echo "  → Note: the private issue stays OPEN (you decide when to close it)"
-    print_links
+    # Edit
+    announce "$PRIVATE1_NUM" "The reporter is editing the issue to add environment details (OS, version, RAM). The private body will update in place."
+    gh issue edit "$ISSUE1_NUM" \
+        --repo "$PUBLIC_REPO" \
+        --title "Bug: crash when loading files larger than 2GB" \
+        --body "When I try to load a file larger than 2GB, the application crashes with a segfault.
 
-    # ── 9. Reopen public issue ───────────────────────────────────────────────
+**Steps to reproduce:**
+1. Open the application
+2. Go to File > Open
+3. Select a file larger than 2GB (tested with 2.1GB and 4GB files)
+4. Application crashes immediately
 
-    step "9. Reopen public issue"
+**Expected:** The file should load, or show a clear error message.
 
-    gh issue reopen "$ISSUE_NUM" --repo "$PUBLIC_REPO"
-    echo "  Reopened public #$ISSUE_NUM"
+**Environment:**
+- OS: Ubuntu 22.04
+- Version: 3.1.0 and 3.1.1 (both crash)
+- RAM: 16GB
+
+*(Edited: added version and OS details)*"
 
     wait_for_run "$PUBLIC_REPO"
     wait_for_run "$PRIVATE_REPO"
+    echo "  ✓ Edit mirrored"
 
-    echo "  → 'public:closed' label should be removed from private"
-    print_links
+    # Label
+    announce "$PRIVATE1_NUM" "Adding a 'bug' label on the public side — Lyrebird will mirror it here."
+    gh issue edit "$ISSUE1_NUM" --repo "$PUBLIC_REPO" --add-label "bug"
 
-    # ── 10. Close private without resolution label ───────────────────────────
-
-    step "10. Close private without resolution label → nudges maintainer"
-
-    gh issue close "$PRIVATE_ISSUE_NUM" --repo "$PRIVATE_REPO"
-    echo "  Closed private #$PRIVATE_ISSUE_NUM (without adding a resolution label)"
-
+    wait_for_run "$PUBLIC_REPO"
     wait_for_run "$PRIVATE_REPO"
+    echo "  ✓ Label mirrored"
 
-    echo "  → Check private mirror: it should now have a 'needs-public-resolution' label"
-    echo "    and a comment explaining how to properly close the public issue."
-    print_links
+    # Type
+    announce "$PRIVATE1_NUM" "Setting the issue type to 'Bug' on the public side — Lyrebird will mirror it here."
+    gh api --method PATCH "repos/$PUBLIC_REPO/issues/$ISSUE1_NUM" -f type=Bug >/dev/null 2>&1 || echo "  ⚠ Could not set issue type (may not be enabled on this repo)"
 
-    # ── 11. /public-close ────────────────────────────────────────────────────
-
-    step "11. Reopen private, then /public-close from private"
-    
-    gh issue reopen "$PRIVATE_ISSUE_NUM" --repo "$PRIVATE_REPO"
-    echo "  Reopened private #$PRIVATE_ISSUE_NUM"
-
+    wait_for_run "$PUBLIC_REPO"
     wait_for_run "$PRIVATE_REPO"
-
-    gh issue comment "$PRIVATE_ISSUE_NUM" \
-        --repo "$PRIVATE_REPO" \
-        --body "/public-close completed Thanks for the report! The fix will be in the next update."
-
-    echo "  Posted /public-close on private #$PRIVATE_ISSUE_NUM"
-
-    wait_for_run "$PRIVATE_REPO"
-
-    echo
-    echo "  → Public issue should be CLOSED with an attributed note"
-    echo "  → Private issue should be CLOSED with 'external:completed' label"
-    print_links
+    echo "  ✓ Type mirrored"
 fi
 
-# ── Done ────────────────────────────────────────────────────────────────────
+echo
+echo "  Issue 1 complete: $ISSUE1_URL"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Issue 2: Edits and deletions
+#   Shows: comment editing, comment deletion → tombstone
+# ═══════════════════════════════════════════════════════════════════════════
+
+step "Issue 2: Edits and deletions"
+
+ISSUE2_URL=$(gh issue create \
+    --repo "$PUBLIC_REPO" \
+    --title "Error message is misleading when config file is missing" \
+    --body "When the config file is missing, the error says 'permission denied' instead of 'file not found'. This is confusing.
+
+\`\`\`
+$ myapp --config /nonexistent/path
+Error: permission denied
+\`\`\`
+
+Expected: \`Error: config file not found: /nonexistent/path\`" \
+    2>&1)
+ISSUE2_NUM=$(echo "$ISSUE2_URL" | grep -oP '\d+$')
+echo "  Created public #$ISSUE2_NUM: Misleading error message"
+echo "  $ISSUE2_URL"
+
+wait_for_run "$PUBLIC_REPO"
+wait_for_run "$PRIVATE_REPO"
+
+PRIVATE2_NUM=$(find_private_issue "$ISSUE2_NUM")
+if [[ -z "$PRIVATE2_NUM" ]]; then
+    echo "  ⚠ Could not find private mirror. Skipping rest of Issue 2."
+else
+    echo "  Mirrored to private #$PRIVATE2_NUM"
+
+    # Post comment with "sensitive" info
+    announce "$PRIVATE2_NUM" "A public user is posting a comment with their config file."
+    COMMENT2_URL=$(gh issue comment "$ISSUE2_NUM" \
+        --repo "$PUBLIC_REPO" \
+        --body "Here's my config file, maybe it helps:
+
+\`\`\`yaml
+database:
+  host: db.example.com
+  user: admin
+  password: hunter2
+  port: 5432
+\`\`\`
+
+Let me know if you need anything else." \
+        2>&1)
+
+    wait_for_run "$PUBLIC_REPO"
+    wait_for_run "$PRIVATE_REPO"
+    echo "  ✓ Comment mirrored"
+
+    # Edit comment to redact password
+    COMMENT2_ID=$(echo "$COMMENT2_URL" | grep -oP '\d+$')
+    announce "$PRIVATE2_NUM" "The user realized they pasted a password. They're editing the comment to redact it — Lyrebird will update the mirrored copy."
+    gh api --method PATCH "repos/$PUBLIC_REPO/issues/comments/$COMMENT2_ID" \
+        -f body="Here's my config file, maybe it helps:
+
+\`\`\`yaml
+database:
+  host: db.example.com
+  user: admin
+  password: ********
+  port: 5432
+\`\`\`
+
+Let me know if you need anything else.
+
+*(Edited: redacted password)*" \
+        >/dev/null 2>&1
+
+    wait_for_run "$PUBLIC_REPO"
+    wait_for_run "$PRIVATE_REPO"
+    echo "  ✓ Comment edit mirrored"
+
+    # Delete comment entirely
+    announce "$PRIVATE2_NUM" "The user decided to delete the comment entirely. Lyrebird will replace the mirrored copy with a tombstone to preserve context."
+    gh api -X DELETE "repos/$PUBLIC_REPO/issues/comments/$COMMENT2_ID" --silent 2>/dev/null || true
+
+    wait_for_run "$PUBLIC_REPO"
+    wait_for_run "$PRIVATE_REPO"
+    echo "  ✓ Comment replaced with tombstone"
+fi
+
+echo
+echo "  Issue 2 complete: $ISSUE2_URL"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Issue 3: Slash commands
+#   Shows: /public (attributed), /public --anon
+# ═══════════════════════════════════════════════════════════════════════════
+
+step "Issue 3: Slash commands"
+
+ISSUE3_URL=$(gh issue create \
+    --repo "$PUBLIC_REPO" \
+    --title "How to configure parallel processing?" \
+    --body "I'm trying to use the parallel processing feature but can't find where to configure the number of workers.
+
+I've looked in the docs but only found references to the old API. Is this still supported?
+
+Thanks!" \
+    2>&1)
+ISSUE3_NUM=$(echo "$ISSUE3_URL" | grep -oP '\d+$')
+echo "  Created public #$ISSUE3_NUM: User question"
+echo "  $ISSUE3_URL"
+
+wait_for_run "$PUBLIC_REPO"
+wait_for_run "$PRIVATE_REPO"
+
+PRIVATE3_NUM=$(find_private_issue "$ISSUE3_NUM")
+if [[ -z "$PRIVATE3_NUM" ]]; then
+    echo "  ⚠ Could not find private mirror. Skipping rest of Issue 3."
+else
+    echo "  Mirrored to private #$PRIVATE3_NUM"
+
+    # /public — attributed reply
+    announce "$PRIVATE3_NUM" "A team member will reply using \`/public\`. This posts an attributed comment on the public issue — their username will be shown."
+    gh issue comment "$PRIVATE3_NUM" \
+        --repo "$PRIVATE_REPO" \
+        --body '/public Yes, parallel processing is still supported! You can configure it in `config.yml`:
+
+```yaml
+processing:
+  workers: 4
+  chunk_size: 1024
+```
+
+The docs are being updated — sorry for the confusion.'
+
+    wait_for_run "$PRIVATE_REPO"
+    echo "  ✓ Attributed reply posted on public issue"
+
+    # /public --anon — anonymous follow-up
+    announce "$PRIVATE3_NUM" "Another team member adds a note using \`/public --anon\`. This posts anonymously — no username shown on the public side."
+    gh issue comment "$PRIVATE3_NUM" \
+        --repo "$PRIVATE_REPO" \
+        --body "/public --anon Note: if you're on version < 3.0, you'll need to upgrade first. The parallel API was rewritten in 3.0."
+
+    wait_for_run "$PRIVATE_REPO"
+    echo "  ✓ Anonymous reply posted on public issue"
+fi
+
+echo
+echo "  Issue 3 complete: $ISSUE3_URL"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Issue 4: Close/reopen lifecycle
+#   Shows: public close → public:closed label, reopen → label removed
+# ═══════════════════════════════════════════════════════════════════════════
+
+step "Issue 4: Close/reopen lifecycle"
+
+ISSUE4_URL=$(gh issue create \
+    --repo "$PUBLIC_REPO" \
+    --title "Typo in the getting started guide" \
+    --body "On the Getting Started page, step 3 says 'run \`make biuld\`' — should be \`make build\`." \
+    2>&1)
+ISSUE4_NUM=$(echo "$ISSUE4_URL" | grep -oP '\d+$')
+echo "  Created public #$ISSUE4_NUM: Typo report"
+echo "  $ISSUE4_URL"
+
+wait_for_run "$PUBLIC_REPO"
+wait_for_run "$PRIVATE_REPO"
+
+PRIVATE4_NUM=$(find_private_issue "$ISSUE4_NUM")
+if [[ -z "$PRIVATE4_NUM" ]]; then
+    echo "  ⚠ Could not find private mirror. Skipping rest of Issue 4."
+else
+    echo "  Mirrored to private #$PRIVATE4_NUM"
+
+    # Close public
+    announce "$PRIVATE4_NUM" "The reporter is closing the public issue (they found the typo was already fixed). Lyrebird will add a \`public:closed\` label here — but the private issue stays open so the team can decide independently."
+    gh issue close "$ISSUE4_NUM" --repo "$PUBLIC_REPO"
+
+    wait_for_run "$PUBLIC_REPO"
+    wait_for_run "$PRIVATE_REPO"
+    echo "  ✓ Private issue gets 'public:closed' label (but stays open)"
+
+    # Reopen public
+    announce "$PRIVATE4_NUM" "The reporter reopened — turns out the typo is on a different page. Lyrebird will remove the \`public:closed\` label."
+    gh issue reopen "$ISSUE4_NUM" --repo "$PUBLIC_REPO"
+
+    wait_for_run "$PUBLIC_REPO"
+    wait_for_run "$PRIVATE_REPO"
+    echo "  ✓ 'public:closed' label removed"
+fi
+
+echo
+echo "  Issue 4 complete: $ISSUE4_URL"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Issue 5: Resolution enforcement
+#   Shows: closing private without resolution (nudge), then proper close
+# ═══════════════════════════════════════════════════════════════════════════
+
+step "Issue 5: Resolution enforcement"
+
+ISSUE5_URL=$(gh issue create \
+    --repo "$PUBLIC_REPO" \
+    --title "Feature request: dark mode" \
+    --body "It would be great to have a dark mode option. My eyes hurt when working late at night.
+
+Other tools in this space already support it (e.g., Tool X, Tool Y)." \
+    2>&1)
+ISSUE5_NUM=$(echo "$ISSUE5_URL" | grep -oP '\d+$')
+echo "  Created public #$ISSUE5_NUM: Feature request"
+echo "  $ISSUE5_URL"
+
+wait_for_run "$PUBLIC_REPO"
+wait_for_run "$PRIVATE_REPO"
+
+PRIVATE5_NUM=$(find_private_issue "$ISSUE5_NUM")
+if [[ -z "$PRIVATE5_NUM" ]]; then
+    echo "  ⚠ Could not find private mirror. Skipping rest of Issue 5."
+else
+    echo "  Mirrored to private #$PRIVATE5_NUM"
+
+    # Close private without resolution label — triggers nudge
+    announce "$PRIVATE5_NUM" "A team member is closing this private issue *without* a resolution label. Lyrebird will detect this and add a \`needs-public-resolution\` label with a comment explaining how to close properly."
+    gh issue close "$PRIVATE5_NUM" --repo "$PRIVATE_REPO"
+
+    wait_for_run "$PRIVATE_REPO"
+    echo "  ✓ Lyrebird adds 'needs-public-resolution' label and explains what to do"
+
+    # Reopen and close properly
+    announce "$PRIVATE5_NUM" "Reopening to fix the closure. Will now use \`/public-close not-planned\` to close both issues properly."
+    gh issue reopen "$PRIVATE5_NUM" --repo "$PRIVATE_REPO"
+
+    wait_for_run "$PRIVATE_REPO"
+
+    gh issue comment "$PRIVATE5_NUM" \
+        --repo "$PRIVATE_REPO" \
+        --body "/public-close not-planned Thanks for the suggestion! Dark mode isn't on our roadmap right now, but we'll keep this in mind for future releases."
+
+    wait_for_run "$PRIVATE_REPO"
+    echo "  ✓ Both issues closed with 'not-planned' resolution"
+fi
+
+echo
+echo "  Issue 5 complete: $ISSUE5_URL"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Summary
+# ═══════════════════════════════════════════════════════════════════════════
 
 step "Demo complete!"
 
 echo
-echo "  This script has successfully generated a fully populated example issue in both"
-echo "  your public and private repositories."
+echo "  Five demo issues have been created:"
 echo
-echo "  What your collaborators will see in the PUBLIC repo ($PUBLIC_REPO):"
-echo "    - A closed issue titled 'Demo: something is broken (updated)'"
-echo "    - A 'bug' label attached to the issue"
-echo "    - Your initial message, showing edit history"
-echo "    - A comment posted by Lyrebird on your behalf: '**@<your-username>**: Thanks for reporting this!...'"
-echo "    - An anonymous comment posted by Lyrebird: 'We're still investigating...'"
-echo "    - A final closing note posted by Lyrebird explaining the issue is resolved."
-echo 
-echo "  What your collaborators will see in the PRIVATE repo ($PRIVATE_REPO):"
-echo "    - A closed mirrored issue titled '[public #$ISSUE_NUM] Demo: something is broken (updated)'"
-echo "    - The mirrored 'bug' label, plus 'external:completed' and 'public:closed' tracking labels."
-echo "    - An initial block linking to the public author, URL, and the original body"
-echo "    - A tombstone comment: '*(deleted on public at...)*' where a user deleted their comment."
-echo "    - The /public slash commands you 'typed' during the demo, followed by Lyrebird's acknowledgement links."
-echo "    - A 'nudge' comment from Lyrebird explaining how to use /public-close when you closed it improperly."
-echo "    - The final /public-close slash command that resolved both issues."
-echo
-echo "  You can share these links with them to explore:"
-if [[ -n "${ISSUE_URL:-}" ]]; then
-    echo "    Public:  $ISSUE_URL"
-fi
-if [[ -n "${PRIVATE_ISSUE_URL:-}" ]]; then
-    echo "    Private: $PRIVATE_ISSUE_URL"
+echo "  1. Bug report lifecycle (mirroring, edits, labels, type sync)"
+echo "     Public:  $ISSUE1_URL"
+if [[ -n "${PRIVATE1_NUM:-}" ]]; then
+echo "     Private: https://github.com/$PRIVATE_REPO/issues/$PRIVATE1_NUM"
 fi
 echo
-echo "  Clean up:"
-if [[ -n "${ISSUE_NUM:-}" ]]; then
-    echo "    gh issue close $ISSUE_NUM --repo $PUBLIC_REPO"
+echo "  2. Edits and deletions (comment edit, comment deletion → tombstone)"
+echo "     Public:  $ISSUE2_URL"
+if [[ -n "${PRIVATE2_NUM:-}" ]]; then
+echo "     Private: https://github.com/$PRIVATE_REPO/issues/$PRIVATE2_NUM"
 fi
-if [[ -n "${PRIVATE_ISSUE_NUM:-}" ]]; then
-    echo "    gh issue close $PRIVATE_ISSUE_NUM --repo $PRIVATE_REPO"
+echo
+echo "  3. Slash commands (/public attributed, /public --anon)"
+echo "     Public:  $ISSUE3_URL"
+if [[ -n "${PRIVATE3_NUM:-}" ]]; then
+echo "     Private: https://github.com/$PRIVATE_REPO/issues/$PRIVATE3_NUM"
 fi
+echo
+echo "  4. Close/reopen lifecycle (public:closed label dance)"
+echo "     Public:  $ISSUE4_URL"
+if [[ -n "${PRIVATE4_NUM:-}" ]]; then
+echo "     Private: https://github.com/$PRIVATE_REPO/issues/$PRIVATE4_NUM"
+fi
+echo
+echo "  5. Resolution enforcement (nudge → proper /public-close)"
+echo "     Public:  $ISSUE5_URL"
+if [[ -n "${PRIVATE5_NUM:-}" ]]; then
+echo "     Private: https://github.com/$PRIVATE_REPO/issues/$PRIVATE5_NUM"
+fi
+echo
+echo "  Share these links with your collaborators to explore!"
 echo
