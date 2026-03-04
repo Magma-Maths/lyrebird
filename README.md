@@ -130,10 +130,6 @@ This project follows [Conventional Commits](https://www.conventionalcommits.org/
 
 Common types: `feat`, `fix`, `docs`, `test`, `refactor`, `ci`, `chore`.
 
-## Design
-
-See [plan.md](plan.md) for the full specification.
-
 ## License
 
 TBD
