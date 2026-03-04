@@ -294,20 +294,39 @@ fi
 step "Demo complete!"
 
 echo
-echo "  Summary of what was demonstrated:"
-echo "    1. Public issue → mirrored to private"
-echo "    2. Public comment → mirrored to private"
-echo "    3. Public edit → updated in private"
-echo "    4. Public label → mirrored to private"
-echo "    5. Public comment delete → tombstone on private"
-echo "    6. /public → attributed reply on public"
-echo "    7. /public --anon → anonymous reply on public"
-echo "    8. Public close → tracking label on private"
-echo "    9. Public reopen → tracking label removed"
-echo "   10. Close private without resolution → nudge comment & label"
-echo "   11. /public-close → both issues closed with resolution"
+echo "  This script has successfully generated a fully populated example issue in both"
+echo "  your public and private repositories."
+echo
+echo "  What your collaborators will see in the PUBLIC repo ($PUBLIC_REPO):"
+echo "    - A closed issue titled 'Demo: something is broken (updated)'"
+echo "    - A 'bug' label attached to the issue"
+echo "    - Your initial message, showing edit history"
+echo "    - A comment posted by Lyrebird on your behalf: '**@<your-username>**: Thanks for reporting this!...'"
+echo "    - An anonymous comment posted by Lyrebird: 'We're still investigating...'"
+echo "    - A final closing note posted by Lyrebird explaining the issue is resolved."
+echo 
+echo "  What your collaborators will see in the PRIVATE repo ($PRIVATE_REPO):"
+echo "    - A closed mirrored issue titled '[public #$ISSUE_NUM] Demo: something is broken (updated)'"
+echo "    - The mirrored 'bug' label, plus 'external:completed' and 'public:closed' tracking labels."
+echo "    - An initial block linking to the public author, URL, and the original body"
+echo "    - A tombstone comment: '*(deleted on public at...)*' where a user deleted their comment."
+echo "    - The /public slash commands you 'typed' during the demo, followed by Lyrebird's acknowledgement links."
+echo "    - A 'nudge' comment from Lyrebird explaining how to use /public-close when you closed it improperly."
+echo "    - The final /public-close slash command that resolved both issues."
+echo
+echo "  You can share these links with them to explore:"
+if [[ -n "${ISSUE_URL:-}" ]]; then
+    echo "    Public:  $ISSUE_URL"
+fi
+if [[ -n "${PRIVATE_ISSUE_URL:-}" ]]; then
+    echo "    Private: $PRIVATE_ISSUE_URL"
+fi
 echo
 echo "  Clean up:"
-echo "    gh issue list --repo $PUBLIC_REPO"
-echo "    gh issue list --repo $PRIVATE_REPO"
+if [[ -n "${ISSUE_NUM:-}" ]]; then
+    echo "    gh issue close $ISSUE_NUM --repo $PUBLIC_REPO"
+fi
+if [[ -n "${PRIVATE_ISSUE_NUM:-}" ]]; then
+    echo "    gh issue close $PRIVATE_ISSUE_NUM --repo $PRIVATE_REPO"
+fi
 echo
