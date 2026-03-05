@@ -10,28 +10,15 @@ When someone opens, edits, or comments on a public issue, Lyrebird mirrors every
 - Public edits &rarr; private title and body updated
 - Public comments &rarr; mirrored to private (edits update in-place, deletes become tombstones)
 - Public labels &rarr; mirrored to private, auto-creating missing labels
-- Public close/reopen &rarr; `public:closed` / `public:closed-by-reporter` labels on private, plus an audit comment (private open/closed state is not changed)
+- Public close/reopen &rarr; private issue state synced (closed/reopened), plus `public:closed` / `public:closed-by-reporter` labels and an audit comment
 
 ## Slash commands
 
 From any private mirrored issue, you can post updates to the public issue:
 
-### `/public <message>`
+### `/anon <message>`
 
-Posts `<message>` as a comment on the public issue and acknowledges in private with a link. By default, Lyrebird will attribute the message to you (e.g. `**@your-username**: <message>`). If you wish to post completely anonymously, use the `--anon` flag:
-`/public --anon <message>`
-
-### `/public-close <resolution> [note]`
-
-Closes both the private and public issues. `<resolution>` must be one of the configured [resolution labels](#resolution-labels). If `[note]` is given, it is posted on the public issue; otherwise the default note for that resolution is used. Like `/public`, a custom note will be attributed to you unless you use the `--anon` flag before your note:
-`/public-close fixed --anon We shipped a fix in v2.1, thanks for the report!`
-
-*(Note: If no custom note is provided, the generic default message is used and is never attributed).*
-
-Example:
-```
-/public-close completed We shipped a fix in v2.1, thanks for the report!
-```
+Posts `<message>` as an anonymous comment on the public issue and acknowledges in private with a link.
 
 ## Closing behavior
 
@@ -39,13 +26,13 @@ When a private issue is closed:
 - With **exactly one** resolution label &rarr; the public issue is closed with the corresponding default note.
 - With **zero or multiple** resolution labels &rarr; a `needs-public-resolution` label is applied and a comment explains what to do.
 
-When a private issue is reopened, resolution and `needs-public-resolution` labels are removed.
+When a private issue is reopened, resolution and `needs-public-resolution` labels are removed, and the public issue is reopened if it was closed.
 
 ## Resolution labels
 
-Resolution labels control `/public-close` and the automatic close behavior. Each has four parts:
+Resolution labels control the automatic close behavior. Each has four parts:
 
-- **key** &mdash; the argument to `/public-close` (e.g. `completed`, `not-planned`)
+- **key** &mdash; the resolution identifier (e.g. `completed`, `not-planned`)
 - **label** &mdash; the private-repo label applied (e.g. `external:completed`)
 - **note** &mdash; the default message posted on the public issue
 - **state_reason** &mdash; the GitHub close reason (`completed` or `not_planned`)

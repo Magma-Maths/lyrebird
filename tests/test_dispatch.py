@@ -37,22 +37,12 @@ def test_route_private_issue_closed(config, mock_client):
     mock_handler.assert_called_once_with(mock_client, config, payload)
 
 
-def test_route_private_comment_slash_public(config, mock_client):
+def test_route_private_comment_slash_anon(config, mock_client):
     payload = {
         "issue": {"number": 1},
-        "comment": {"body": "/public hello"},
+        "comment": {"body": "/anon hello"},
     }
-    with patch("lyrebird.dispatch.slash_public") as mod:
-        route(mock_client, config, "issue_comment", "created", payload, source="private")
-        mod.handle.assert_called_once_with(mock_client, config, payload)
-
-
-def test_route_private_comment_slash_public_close(config, mock_client):
-    payload = {
-        "issue": {"number": 1},
-        "comment": {"body": "/public-close completed done"},
-    }
-    with patch("lyrebird.dispatch.slash_public_close") as mod:
+    with patch("lyrebird.dispatch.slash_anon") as mod:
         route(mock_client, config, "issue_comment", "created", payload, source="private")
         mod.handle.assert_called_once_with(mock_client, config, payload)
 

@@ -281,7 +281,7 @@ echo "  Issue 2 complete: $ISSUE2_URL"
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Issue 3: Slash commands
-#   Shows: /public (attributed), /public --anon
+#   Shows: /anon
 # ═══════════════════════════════════════════════════════════════════════════
 
 step "Issue 3: Slash commands"
@@ -308,11 +308,11 @@ if [[ -z "$PRIVATE3_NUM" ]]; then
 else
     echo "  Mirrored to private #$PRIVATE3_NUM"
 
-    # /public — attributed reply
-    announce "$PRIVATE3_NUM" "A team member will reply using \`/public\`. This posts an attributed comment on the public issue — their username will be shown."
+    # /anon — anonymous reply
+    announce "$PRIVATE3_NUM" "A team member will reply using \`/anon\`. This posts an anonymous comment on the public issue."
     gh issue comment "$PRIVATE3_NUM" \
         --repo "$PRIVATE_REPO" \
-        --body '/public Yes, parallel processing is still supported! You can configure it in `config.yml`:
+        --body '/anon Yes, parallel processing is still supported! You can configure it in `config.yml`:
 
 ```yaml
 processing:
@@ -323,16 +323,16 @@ processing:
 The docs are being updated — sorry for the confusion.'
 
     wait_for_run "$PRIVATE_REPO"
-    echo "  ✓ Attributed reply posted on public issue"
+    echo "  ✓ Anonymous reply posted on public issue"
 
-    # /public --anon — anonymous follow-up
-    announce "$PRIVATE3_NUM" "Another team member adds a note using \`/public --anon\`. This posts anonymously — no username shown on the public side."
+    # /anon — anonymous follow-up
+    announce "$PRIVATE3_NUM" "Another team member adds an anonymous follow-up using \`/anon\`."
     gh issue comment "$PRIVATE3_NUM" \
         --repo "$PRIVATE_REPO" \
-        --body "/public --anon Note: if you're on version < 3.0, you'll need to upgrade first. The parallel API was rewritten in 3.0."
+        --body "/anon Note: if you're on version < 3.0, you'll need to upgrade first. The parallel API was rewritten in 3.0."
 
     wait_for_run "$PRIVATE_REPO"
-    echo "  ✓ Anonymous reply posted on public issue"
+    echo "  ✓ Anonymous follow-up posted on public issue"
 fi
 
 echo
@@ -340,7 +340,7 @@ echo "  Issue 3 complete: $ISSUE3_URL"
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Issue 4: Close/reopen lifecycle
-#   Shows: public close → public:closed label, reopen → label removed
+#   Shows: public close → private closed + label, reopen → both reopened
 # ═══════════════════════════════════════════════════════════════════════════
 
 step "Issue 4: Close/reopen lifecycle"
@@ -364,20 +364,20 @@ else
     echo "  Mirrored to private #$PRIVATE4_NUM"
 
     # Close public
-    announce "$PRIVATE4_NUM" "The reporter is closing the public issue (they found the typo was already fixed). Lyrebird will add a \`public:closed\` label here — but the private issue stays open so the team can decide independently."
+    announce "$PRIVATE4_NUM" "The reporter is closing the public issue (they found the typo was already fixed). Lyrebird will add a \`public:closed\` label and close this private issue too."
     gh issue close "$ISSUE4_NUM" --repo "$PUBLIC_REPO"
 
     wait_for_run "$PUBLIC_REPO"
     wait_for_run "$PRIVATE_REPO"
-    echo "  ✓ Private issue gets 'public:closed' label (but stays open)"
+    echo "  ✓ Private issue closed with 'public:closed' label"
 
     # Reopen public
-    announce "$PRIVATE4_NUM" "The reporter reopened — turns out the typo is on a different page. Lyrebird will remove the \`public:closed\` label."
+    announce "$PRIVATE4_NUM" "The reporter reopened — turns out the typo is on a different page. Lyrebird will reopen this private issue and remove the \`public:closed\` label."
     gh issue reopen "$ISSUE4_NUM" --repo "$PUBLIC_REPO"
 
     wait_for_run "$PUBLIC_REPO"
     wait_for_run "$PRIVATE_REPO"
-    echo "  ✓ 'public:closed' label removed"
+    echo "  ✓ Private issue reopened, 'public:closed' label removed"
 fi
 
 echo
@@ -417,15 +417,21 @@ else
     wait_for_run "$PRIVATE_REPO"
     echo "  ✓ Lyrebird adds 'needs-public-resolution' label and explains what to do"
 
-    # Reopen and close properly
-    announce "$PRIVATE5_NUM" "Reopening to fix the closure. Will now use \`/public-close not-planned\` to close both issues properly."
+    # Reopen and close properly with resolution label
+    announce "$PRIVATE5_NUM" "Reopening to fix the closure. Will add a resolution label and close again properly."
     gh issue reopen "$PRIVATE5_NUM" --repo "$PRIVATE_REPO"
 
     wait_for_run "$PRIVATE_REPO"
 
+    # Post a note via /anon, then add resolution label and close
     gh issue comment "$PRIVATE5_NUM" \
         --repo "$PRIVATE_REPO" \
-        --body "/public-close not-planned Thanks for the suggestion! Dark mode isn't on our roadmap right now, but we'll keep this in mind for future releases."
+        --body "/anon Thanks for the suggestion! Dark mode isn't on our roadmap right now, but we'll keep this in mind for future releases."
+
+    wait_for_run "$PRIVATE_REPO"
+
+    gh issue edit "$PRIVATE5_NUM" --repo "$PRIVATE_REPO" --add-label "external:not-planned"
+    gh issue close "$PRIVATE5_NUM" --repo "$PRIVATE_REPO"
 
     wait_for_run "$PRIVATE_REPO"
     echo "  ✓ Both issues closed with 'not-planned' resolution"
@@ -455,23 +461,27 @@ if [[ -n "${PRIVATE2_NUM:-}" ]]; then
 echo "     Private: https://github.com/$PRIVATE_REPO/issues/$PRIVATE2_NUM"
 fi
 echo
-echo "  3. Slash commands (/public attributed, /public --anon)"
+echo "  3. Slash commands (/anon)"
 echo "     Public:  $ISSUE3_URL"
 if [[ -n "${PRIVATE3_NUM:-}" ]]; then
 echo "     Private: https://github.com/$PRIVATE_REPO/issues/$PRIVATE3_NUM"
 fi
 echo
-echo "  4. Close/reopen lifecycle (public:closed label dance)"
+echo "  4. Close/reopen lifecycle (bidirectional state sync)"
 echo "     Public:  $ISSUE4_URL"
 if [[ -n "${PRIVATE4_NUM:-}" ]]; then
 echo "     Private: https://github.com/$PRIVATE_REPO/issues/$PRIVATE4_NUM"
 fi
 echo
-echo "  5. Resolution enforcement (nudge → proper /public-close)"
+echo "  5. Resolution enforcement (nudge → proper label + close)"
 echo "     Public:  $ISSUE5_URL"
 if [[ -n "${PRIVATE5_NUM:-}" ]]; then
 echo "     Private: https://github.com/$PRIVATE_REPO/issues/$PRIVATE5_NUM"
 fi
 echo
 echo "  Share these links with your collaborators to explore!"
+echo
+echo "  Clean up (close all generated issues):"
+echo "    gh issue close $ISSUE1_NUM $ISSUE2_NUM $ISSUE3_NUM $ISSUE4_NUM $ISSUE5_NUM --repo $PUBLIC_REPO"
+echo "    gh issue close ${PRIVATE1_NUM:-} ${PRIVATE2_NUM:-} ${PRIVATE3_NUM:-} ${PRIVATE4_NUM:-} ${PRIVATE5_NUM:-} --repo $PRIVATE_REPO"
 echo

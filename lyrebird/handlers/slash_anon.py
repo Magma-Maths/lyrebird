@@ -1,4 +1,4 @@
-"""Handle /public slash command: post message on public issue."""
+"""Handle /anon slash command: post anonymous message on public issue."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from lyrebird.mapping import parse_private_body_markers
 
 logger = logging.getLogger(__name__)
 
-SLASH_PUBLIC_RE = re.compile(r"^/public\s+(.+)", re.DOTALL)
+SLASH_ANON_RE = re.compile(r"^/anon\s+(.+)", re.DOTALL)
 
 
 def handle(client: Github, config: Config, payload: dict) -> None:
@@ -20,28 +20,13 @@ def handle(client: Github, config: Config, payload: dict) -> None:
     issue = payload["issue"]
     body = (comment.get("body") or "").strip()
 
-    match = SLASH_PUBLIC_RE.match(body)
+    match = SLASH_ANON_RE.match(body)
     if not match:
         return
 
     message = match.group(1).strip()
     if not message:
         return
-
-    is_anon = False
-    if message.startswith("--anon "):
-        is_anon = True
-        message = message[7:].strip()
-    elif message == "--anon":
-        is_anon = True
-        message = ""
-
-    if not message:
-        return
-
-    if not is_anon:
-        sender = payload.get("sender", {}).get("login", "unknown")
-        message = f"**@{sender}**:\n\n{message}"
 
     # Find mapped public issue from private issue body
     issue_body = issue.get("body") or ""
@@ -51,10 +36,10 @@ def handle(client: Github, config: Config, payload: dict) -> None:
         priv_repo = client.get_repo(config.private_repo)
         priv_issue = priv_repo.get_issue(issue["number"])
         priv_issue.create_comment(
-            "This issue is not linked to a public issue. `/public` has no effect."
+            "This issue is not linked to a public issue. `/anon` has no effect."
         )
         logger.warning(
-            "/public on private #%d which has no public mapping", issue["number"]
+            "/anon on private #%d which has no public mapping", issue["number"]
         )
         return
 
@@ -75,7 +60,7 @@ def handle(client: Github, config: Config, payload: dict) -> None:
         f"Posted to public: {public_comment.html_url}"
     )
     logger.info(
-        "/public on private #%d -> public comment %s",
+        "/anon on private #%d -> public comment %s",
         issue["number"],
         public_comment.html_url,
     )

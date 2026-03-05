@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock, call, patch
 
 from lyrebird.handlers.public_issue_state import handle
 from tests.conftest import make_mock_issue, make_public_issue_payload
@@ -78,9 +78,158 @@ def test_reopen_removes_labels(config, mock_client):
     }
 
     mock_private, _ = _setup_mocks(config, mock_client)
+
+    lbl_closed = MagicMock()
+    lbl_closed.name = "public:closed"
+    lbl_reporter = MagicMock()
+    lbl_reporter.name = "public:closed-by-reporter"
+    mock_private.get_labels.return_value = [lbl_closed, lbl_reporter]
+
     handle(mock_client, config, payload)
 
     mock_private.remove_from_labels.assert_any_call("public:closed")
     mock_private.remove_from_labels.assert_any_call("public:closed-by-reporter")
     audit = mock_private.create_comment.call_args[0][0]
     assert "reopened" in audit
+
+
+def test_close_also_closes_private(config, mock_client):
+    public_issue = make_public_issue_payload(user_login="reporter")
+    payload = {
+        "action": "closed",
+        "issue": public_issue,
+        "sender": {"login": "closer", "type": "User"},
+    }
+
+    mock_private, _ = _setup_mocks(config, mock_client)
+    handle(mock_client, config, payload)
+
+    mock_private.edit.assert_called_once_with(state="closed")
+
+
+def test_reopen_also_reopens_private(config, mock_client):
+    public_issue = make_public_issue_payload(user_login="reporter")
+    payload = {
+        "action": "reopened",
+        "issue": public_issue,
+        "sender": {"login": "reporter", "type": "User"},
+    }
+
+    mock_private, _ = _setup_mocks(config, mock_client)
+    handle(mock_client, config, payload)
+
+    mock_private.edit.assert_called_once_with(state="open")
+
+
+def test_close_with_state_reason(config, mock_client):
+    public_issue = make_public_issue_payload(user_login="reporter")
+    # GitHub payloads include state_reason in the 'issue' object
+    public_issue["state_reason"] = "not_planned"
+    payload = {
+        "action": "closed",
+        "issue": public_issue,
+        "sender": {"login": "closer", "type": "User"},
+    }
+
+    mock_private, _ = _setup_mocks(config, mock_client)
+    handle(mock_client, config, payload)
+
+    # We want to sync both state AND state_reason
+    mock_private.edit.assert_called_once_with(state="closed", state_reason="not_planned")
+
+
+def test_reopen_cleans_resolution_labels(config, mock_client):
+    public_issue = make_public_issue_payload(user_login="reporter")
+    payload = {
+        "action": "reopened",
+        "issue": public_issue,
+        "sender": {"login": "reporter", "type": "User"},
+    }
+
+    mock_private, _ = _setup_mocks(config, mock_client)
+
+    # Add resolution labels to the private issue
+    lbl1 = MagicMock()
+    lbl1.name = "external:completed"
+    lbl2 = MagicMock()
+    lbl2.name = "needs-public-resolution"
+    mock_private.get_labels.return_value = [lbl1, lbl2]
+
+    handle(mock_client, config, payload)
+
+    removed = {c[0][0] for c in mock_private.remove_from_labels.call_args_list}
+    assert "external:completed" in removed
+    assert "needs-public-resolution" in removed
+
+
+def test_no_mapping_returns_early(config, mock_client):
+    """When resolve_mapping returns None, handler exits without touching anything."""
+    public_issue = make_public_issue_payload(user_login="reporter")
+    payload = {
+        "action": "closed",
+        "issue": public_issue,
+        "sender": {"login": "closer", "type": "User"},
+    }
+
+    with patch(
+        "lyrebird.handlers.public_issue_state.resolve_mapping", return_value=None
+    ):
+        handle(mock_client, config, payload)
+
+    # No repo interaction beyond what resolve_mapping does internally
+    mock_client.get_repo.assert_not_called()
+
+
+def test_reopen_by_non_reporter_no_reporter_note(config, mock_client):
+    """Reopen by someone other than reporter omits '(original reporter)'."""
+    public_issue = make_public_issue_payload(user_login="reporter")
+    payload = {
+        "action": "reopened",
+        "issue": public_issue,
+        "sender": {"login": "maintainer", "type": "User"},
+    }
+
+    mock_private, _ = _setup_mocks(config, mock_client)
+    mock_private.get_labels.return_value = []
+
+    handle(mock_client, config, payload)
+
+    audit = mock_private.create_comment.call_args[0][0]
+    assert "reopened by @maintainer" in audit
+    assert "original reporter" not in audit
+
+
+def test_close_creates_label_when_missing(config, mock_client):
+    """_ensure_and_add_label creates the label if get_label raises."""
+    public_issue = make_public_issue_payload(user_login="reporter")
+    payload = {
+        "action": "closed",
+        "issue": public_issue,
+        "sender": {"login": "closer", "type": "User"},
+    }
+
+    mock_private, mock_priv_repo = _setup_mocks(config, mock_client)
+    mock_priv_repo.get_label.side_effect = Exception("not found")
+
+    handle(mock_client, config, payload)
+
+    mock_priv_repo.create_label.assert_called_with(
+        name="public:closed", color="e4e669"
+    )
+
+
+def test_missing_sender_uses_unknown(config, mock_client):
+    """Missing sender in payload falls back to 'unknown'."""
+    public_issue = make_public_issue_payload(user_login="reporter")
+    payload = {
+        "action": "closed",
+        "issue": public_issue,
+        # no "sender" key
+    }
+
+    mock_private, _ = _setup_mocks(config, mock_client)
+
+    handle(mock_client, config, payload)
+
+    audit = mock_private.create_comment.call_args[0][0]
+    assert "closed by @unknown" in audit

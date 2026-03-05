@@ -21,8 +21,7 @@ from lyrebird.handlers import (
     public_issue_state,
     public_issue_typed,
     public_labels_changed,
-    slash_public,
-    slash_public_close,
+    slash_anon,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,10 +32,8 @@ Handler = Callable[[Github, Config, dict], None]
 def _route_private_comment(client: Github, config: Config, payload: dict) -> None:
     """Dispatch private comments: slash commands or ignore."""
     body = (payload.get("comment", {}).get("body") or "").strip()
-    if body.startswith("/public-close"):
-        slash_public_close.handle(client, config, payload)
-    elif body.startswith("/public"):
-        slash_public.handle(client, config, payload)
+    if body.startswith("/anon"):
+        slash_anon.handle(client, config, payload)
     # else: not a slash command, ignore
 
 

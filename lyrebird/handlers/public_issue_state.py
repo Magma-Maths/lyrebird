@@ -7,6 +7,7 @@ import logging
 from github import Github
 
 from lyrebird.config import Config
+from lyrebird.handlers._cleanup_labels import cleanup_private_resolution_labels
 from lyrebird.mapping import resolve_mapping
 
 logger = logging.getLogger(__name__)
@@ -40,13 +41,19 @@ def handle(client: Github, config: Config, payload: dict) -> None:
             audit += " (original reporter)"
         private_issue.create_comment(audit)
 
+        state_reason = public_issue.get("state_reason")
+        if state_reason:
+            private_issue.edit(state="closed", state_reason=state_reason)
+        else:
+            private_issue.edit(state="closed")
+
     elif action == "reopened":
-        _try_remove_label(private_issue, config.closed_label)
-        _try_remove_label(private_issue, config.closed_by_reporter_label)
+        cleanup_private_resolution_labels(config, private_issue)
         audit = f"Public issue reopened by @{sender}"
         if is_reporter:
             audit += " (original reporter)"
         private_issue.create_comment(audit)
+        private_issue.edit(state="open")
 
     logger.info(
         "Handled public %s for private #%d",
@@ -66,13 +73,5 @@ def _ensure_and_add_label(repo, issue, label_name: str) -> None:
             pass
     try:
         issue.add_to_labels(label_name)
-    except Exception:
-        pass
-
-
-def _try_remove_label(issue, label_name: str) -> None:
-    """Remove label if present, ignore errors."""
-    try:
-        issue.remove_from_labels(label_name)
     except Exception:
         pass

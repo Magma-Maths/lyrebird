@@ -9,8 +9,8 @@ collaborator opens a private issue, they can read it like a narrated walkthrough
 
 1. *Announcer:* "Adding a 'bug' label on the public side — Lyrebird will mirror it here automatically."
 2. *(Lyrebird mirrors the label)*
-3. *Announcer:* "Posting a `/public` reply to show automatic attribution."
-4. *(Lyrebird posts the attributed reply on public)*
+3. *Announcer:* "Posting a `/anon` reply to show anonymous messaging."
+4. *(Lyrebird posts the anonymous reply on public)*
 
 Announcer comments are posted by the same bot token, so they appear inline in the
 timeline alongside Lyrebird's mirrored content.
@@ -45,13 +45,13 @@ timeline alongside Lyrebird's mirrored content.
 
 ### Issue 3: Slash Commands
 **Public title:** `How to configure parallel processing?`
-**Shows:** `/public` (attributed), `/public --anon`
+**Shows:** `/anon`
 
 1. Create public issue (user question). Wait for mirror.
-2. **Announce:** "A team member will reply using `/public`. This posts an attributed comment on the public issue — their username will be shown."
-3. Post `/public` with a helpful answer including a code example. Wait for sync.
-4. **Announce:** "Another team member adds a note using `/public --anon`. This posts anonymously — no username shown on the public side."
-5. Post `/public --anon` with a version compatibility note. Wait for sync.
+2. **Announce:** "A team member will reply using `/anon`. This posts an anonymous comment on the public issue."
+3. Post `/anon` with a helpful answer including a code example. Wait for sync.
+4. **Announce:** "Another team member adds an anonymous follow-up using `/anon`."
+5. Post `/anon` with a version compatibility note. Wait for sync.
 
 ### Issue 4: Close/Reopen Lifecycle
 **Public title:** `Typo in the getting started guide`
@@ -65,14 +65,14 @@ timeline alongside Lyrebird's mirrored content.
 
 ### Issue 5: Resolution Enforcement
 **Public title:** `Feature request: dark mode`
-**Shows:** nudge on improper close, proper `/public-close`
+**Shows:** nudge on improper close, proper label + close
 
 1. Create public issue (feature request). Wait for mirror.
 2. **Announce:** "A team member is closing this private issue *without* a resolution label. Lyrebird will detect this and add a `needs-public-resolution` label with a comment explaining how to close properly."
 3. Close private issue natively. Wait for sync → nudge + `needs-public-resolution`.
-4. **Announce:** "Reopening to fix the closure. Will now use `/public-close not-planned` to close both issues properly."
+4. **Announce:** "Reopening to fix the closure. Will add a resolution label and close again properly."
 5. Reopen private issue. Wait for sync.
-6. Post `/public-close not-planned` with a custom note. Wait for sync → both closed.
+6. Post `/anon` with a custom note, add `external:not-planned` label, close. Wait for sync → both closed.
 
 ## Summary Output
 
@@ -87,7 +87,7 @@ At the end, print a grid of links to all 5 public and 5 private issues:
      Public:  <url>
      Private: <url>
 
-  3. Slash commands (/public attributed, /public --anon)
+  3. Slash commands (/anon)
      Public:  <url>
      Private: <url>
 
@@ -95,7 +95,7 @@ At the end, print a grid of links to all 5 public and 5 private issues:
      Public:  <url>
      Private: <url>
 
-  5. Resolution enforcement (nudge → proper /public-close)
+  5. Resolution enforcement (nudge → proper label + close)
      Public:  <url>
      Private: <url>
 ```

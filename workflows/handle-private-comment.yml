@@ -1,6 +1,6 @@
 # Install in the PRIVATE repo at .github/workflows/handle-private-comment.yml
 #
-# Handles slash commands in private issue comments (/public, /public-close).
+# Handles slash commands in private issue comments (/anon).
 
 name: Handle private comment events
 
@@ -15,7 +15,7 @@ concurrency:
 jobs:
   handle:
     # Only run if the comment looks like a slash command
-    if: github.repository == vars.PRIVATE_REPO && startsWith(github.event.comment.body, '/public')
+    if: github.repository == vars.PRIVATE_REPO && startsWith(github.event.comment.body, '/anon')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout lyrebird

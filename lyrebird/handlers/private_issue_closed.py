@@ -77,7 +77,7 @@ def handle(client: Github, config: Config, payload: dict) -> None:
         )
         priv_issue.create_comment(
             "Public issue is still open. Add exactly one resolution label "
-            f"({allowed}), or use `/public-close <resolution> <note>`."
+            f"({allowed}), then close again."
         )
         logger.info(
             "Private #%d closed with %d resolution labels, added %s",
