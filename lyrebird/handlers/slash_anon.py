@@ -64,3 +64,21 @@ def handle(client: Github, config: Config, payload: dict) -> None:
         issue["number"],
         public_comment.html_url,
     )
+
+    # Label bookkeeping for closed issues
+    if issue.get("state") == "closed":
+        current_labels = {lbl.name for lbl in priv_issue.get_labels()}
+        # Remove resolution:none if present
+        if config.needs_resolution_label in current_labels:
+            try:
+                priv_issue.remove_from_labels(config.needs_resolution_label)
+            except Exception:
+                pass
+        # Add resolution:custom if no resolution label present
+        resolution_labels_present = current_labels & config.all_resolution_label_names()
+        # Exclude resolution:none from counting as a "real" resolution
+        resolution_labels_present -= {config.needs_resolution_label}
+        if not resolution_labels_present:
+            custom_label = config.resolution_label_name("custom")
+            if custom_label:
+                priv_issue.add_to_labels(custom_label)
