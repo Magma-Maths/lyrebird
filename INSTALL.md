@@ -99,12 +99,14 @@ Set on **both** repos (Settings > Secrets and variables > Actions > Secrets):
 
 ### Delayed close environment
 
-The private repo needs a **`delayed-5min`** environment with a wait timer. This gives maintainers a grace period to add a resolution label or post a custom message via `/anon` before the system nudges.
+The private repo needs a **`delayed-5min`** environment. With a wait timer, this gives maintainers a 5-minute grace period to add a resolution label or use `/anon` before the system nudges.
 
 1. Go to the **private repo** → Settings → Environments → **New environment**
 2. Name it `delayed-5min`
 3. Under **Environment protection rules**, set **Wait timer** to `5` (minutes)
 4. Click **Save protection rules**
+
+> **Note:** Wait timers on private repos require **GitHub Enterprise**. On other plans, the environment still works but the delayed-close-check job runs immediately (no grace period). The nudge behavior is the same — you just don't get the 5-minute window.
 
 ## 5. Verify
 

@@ -159,9 +159,21 @@ deploy_workflows "$PRIVATE_REPO" private-clone \
 echo
 echo "==> Creating delayed-5min environment on $PRIVATE_REPO..."
 
-gh api --method PUT "repos/$PRIVATE_REPO/environments/delayed-5min" \
-    --input - <<< '{"wait_timer": 5}' \
-    >/dev/null 2>&1 && echo "  delayed-5min (5 min wait timer)" || echo "  ⚠ Could not create environment (may need admin access)"
+ENV_RESPONSE=$(gh api --method PUT "repos/$PRIVATE_REPO/environments/delayed-5min" \
+    --input - <<< '{"wait_timer": 5}' 2>&1) || {
+    echo "  ⚠ Could not create environment (may need admin access)"
+    ENV_RESPONSE=""
+}
+if [[ -n "$ENV_RESPONSE" ]]; then
+    ACTUAL_TIMER=$(echo "$ENV_RESPONSE" | jq -r '.protection_rules[]? | select(.type == "wait_timer") | .wait_timer // empty' 2>/dev/null)
+    if [[ "$ACTUAL_TIMER" == "5" ]]; then
+        echo "  delayed-5min (5 min wait timer)"
+    else
+        echo "  delayed-5min created, but wait timer was NOT set."
+        echo "  Wait timers on private repos require GitHub Enterprise."
+        echo "  The delayed-close-check job will still run, but without the 5-minute delay."
+    fi
+fi
 
 # ── Done ─────────────────────────────────────────────────────────────────────
 

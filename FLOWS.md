@@ -163,14 +163,10 @@ flowchart TD
     C -- No --> D["Bail — reopened<br/>during grace period"]
     C -- Yes --> E{"Exactly 1 resolution<br/>label?<br/>(excl. resolution:none)"}
     E -- Yes --> F["Do nothing —<br/>already handled"]
-    E -- "0" --> G0{"resolution:none<br/>already present?"}
-    E -- ">1" --> G1{"resolution:none<br/>already present?"}
-    G0 -- No --> H0["Add resolution:none<br/>label"]
-    G0 -- Yes --> I0["Post nudge:<br/>'Add exactly one resolution<br/>label, or use /anon'"]
-    H0 --> I0
-    G1 -- No --> H1["Add resolution:none<br/>label"]
-    G1 -- Yes --> I1["Post nudge:<br/>'Multiple labels present.<br/>Remove extras, or use /anon'"]
-    H1 --> I1
+    E -- "0 or >1" --> G{"resolution:none<br/>already present?"}
+    G -- No --> H["Add resolution:none<br/>label"]
+    G -- Yes --> I
+    H --> I["Post nudge comment<br/>(message varies:<br/>0 → 'add one' / >1 → 'remove extras')"]
 ```
 
 ### Private Issue Reopened
