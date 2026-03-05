@@ -55,13 +55,13 @@ timeline alongside Lyrebird's mirrored content.
 
 ### Issue 4: Close/Reopen Lifecycle
 **Public title:** `Typo in the getting started guide`
-**Shows:** public close → `public:closed` label, reopen → label removed
+**Shows:** public close → private closed + `public:closed` label, reopen → both reopened
 
 1. Create public issue. Wait for mirror.
-2. **Announce:** "The reporter is closing the public issue (they found the typo was already fixed). Lyrebird will add a `public:closed` label here — but the private issue stays open so the team can decide independently."
-3. Close public issue. Wait for sync → private gets `public:closed` label.
-4. **Announce:** "The reporter reopened — turns out the typo is on a different page. Lyrebird will remove the `public:closed` label."
-5. Reopen public issue. Wait for sync → label removed.
+2. **Announce:** "The reporter is closing the public issue (they found the typo was already fixed). Lyrebird will add a `public:closed` label and close this private issue too."
+3. Close public issue. Wait for sync → private closed with `public:closed` label.
+4. **Announce:** "The reporter reopened — turns out the typo is on a different page. Lyrebird will reopen this private issue and remove the `public:closed` label."
+5. Reopen public issue. Wait for sync → both reopened, label removed.
 
 ### Issue 5: Resolution Enforcement
 **Public title:** `Feature request: dark mode`
