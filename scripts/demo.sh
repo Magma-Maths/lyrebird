@@ -364,20 +364,20 @@ else
     echo "  Mirrored to private #$PRIVATE4_NUM"
 
     # Close public
-    announce "$PRIVATE4_NUM" "The reporter is closing the public issue (they found the typo was already fixed). Lyrebird will add a \`public:closed\` label and close this private issue too."
+    announce "$PRIVATE4_NUM" "The reporter is closing the public issue (they found the typo was already fixed). Lyrebird will close this private issue too."
     gh issue close "$ISSUE4_NUM" --repo "$PUBLIC_REPO"
 
     wait_for_run "$PUBLIC_REPO"
     wait_for_run "$PRIVATE_REPO"
-    echo "  ✓ Private issue closed with 'public:closed' label"
+    echo "  ✓ Private issue closed"
 
     # Reopen public
-    announce "$PRIVATE4_NUM" "The reporter reopened — turns out the typo is on a different page. Lyrebird will reopen this private issue and remove the \`public:closed\` label."
+    announce "$PRIVATE4_NUM" "The reporter reopened — turns out the typo is on a different page. Lyrebird will reopen this private issue too."
     gh issue reopen "$ISSUE4_NUM" --repo "$PUBLIC_REPO"
 
     wait_for_run "$PUBLIC_REPO"
     wait_for_run "$PRIVATE_REPO"
-    echo "  ✓ Private issue reopened, 'public:closed' label removed"
+    echo "  ✓ Both issues reopened"
 fi
 
 echo

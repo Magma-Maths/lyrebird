@@ -10,7 +10,7 @@ When someone opens, edits, or comments on a public issue, Lyrebird mirrors every
 - Public edits &rarr; private title and body updated
 - Public comments &rarr; mirrored to private (edits update in-place, deletes become tombstones)
 - Public labels &rarr; mirrored to private, auto-creating missing labels
-- Public close/reopen &rarr; private issue state synced (closed/reopened), plus `public:closed` / `public:closed-by-reporter` labels and an audit comment
+- Public close/reopen &rarr; private issue state synced (closed/reopened) with an audit comment
 
 ## Slash commands
 

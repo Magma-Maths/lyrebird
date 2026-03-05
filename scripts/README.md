@@ -20,7 +20,7 @@ Instead of cramming every feature into a single confusing thread, it creates **f
 1. Bug report lifecycle (mirroring, edits, labels, type sync)
 2. Edits and deletions (comment edit, comment deletion → tombstone)
 3. Slash commands (`/anon`)
-4. Close/reopen lifecycle (the `public:closed` label dance)
+4. Close/reopen lifecycle (bidirectional state sync)
 5. Resolution enforcement (maintainer nudge → proper label + close)
 
 It also acts as a "narrator", posting explanatory comments in the private issues *before* each action happens so your collaborators can easily follow along with the timeline.

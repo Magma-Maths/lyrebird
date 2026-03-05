@@ -44,8 +44,6 @@ class Config:
     mapping_comment_template: str = (
         "Thanks for the report! Our team is tracking this and will post updates here."
     )
-    closed_label: str = "public:closed"
-    closed_by_reporter_label: str = "public:closed-by-reporter"
     needs_resolution_label: str = "needs-public-resolution"
 
     @property
@@ -130,10 +128,6 @@ def load_config() -> Config:
         mapping_comment_template=os.environ.get(
             "MAPPING_COMMENT_TEMPLATE",
             "Thanks for the report! Our team is tracking this and will post updates here.",
-        ),
-        closed_label=os.environ.get("CLOSED_LABEL", "public:closed"),
-        closed_by_reporter_label=os.environ.get(
-            "CLOSED_BY_REPORTER_LABEL", "public:closed-by-reporter"
         ),
         needs_resolution_label=os.environ.get(
             "NEEDS_RESOLUTION_LABEL", "needs-public-resolution"

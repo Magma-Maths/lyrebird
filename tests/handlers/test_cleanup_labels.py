@@ -13,8 +13,6 @@ def test_removes_all_resolution_and_status_labels(config):
     for name in [
         "external:completed",
         "needs-public-resolution",
-        "public:closed",
-        "public:closed-by-reporter",
     ]:
         lbl = MagicMock()
         lbl.name = name
@@ -27,8 +25,6 @@ def test_removes_all_resolution_and_status_labels(config):
     assert removed == {
         "external:completed",
         "needs-public-resolution",
-        "public:closed",
-        "public:closed-by-reporter",
     }
 
 
@@ -92,7 +88,7 @@ def test_partial_match_only_removes_matching(config):
     """Only cleanup-eligible labels are removed; others stay."""
     priv_issue = MagicMock()
     labels = []
-    for name in ["external:completed", "bug", "public:closed", "enhancement"]:
+    for name in ["external:completed", "bug", "enhancement"]:
         lbl = MagicMock()
         lbl.name = name
         labels.append(lbl)
@@ -101,6 +97,6 @@ def test_partial_match_only_removes_matching(config):
     cleanup_private_resolution_labels(config, priv_issue)
 
     removed = {c[0][0] for c in priv_issue.remove_from_labels.call_args_list}
-    assert removed == {"external:completed", "public:closed"}
+    assert removed == {"external:completed"}
     assert "bug" not in removed
     assert "enhancement" not in removed

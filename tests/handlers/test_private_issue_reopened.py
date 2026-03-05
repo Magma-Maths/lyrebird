@@ -149,36 +149,6 @@ def test_no_body_skips_public_reopen(config, mock_client):
     mock_priv_issue.create_comment.assert_called_once()
 
 
-def test_cleans_public_closed_labels(config, mock_client):
-    """Verify public:closed and public:closed-by-reporter are removed on reopen."""
-    payload = {
-        "action": "reopened",
-        "issue": {"number": 10, "body": "body", "state": "open"},
-        "sender": {"login": "engineer", "type": "User"},
-    }
-
-    mock_priv_repo = MagicMock()
-    mock_priv_issue = MagicMock()
-
-    lbl1 = MagicMock()
-    lbl1.name = "public:closed"
-    lbl2 = MagicMock()
-    lbl2.name = "public:closed-by-reporter"
-    lbl3 = MagicMock()
-    lbl3.name = "bug"
-    mock_priv_issue.get_labels.return_value = [lbl1, lbl2, lbl3]
-    mock_priv_repo.get_issue.return_value = mock_priv_issue
-
-    mock_client.get_repo.return_value = mock_priv_repo
-
-    handle(mock_client, config, payload)
-
-    removed = {c[0][0] for c in mock_priv_issue.remove_from_labels.call_args_list}
-    assert "public:closed" in removed
-    assert "public:closed-by-reporter" in removed
-    assert "bug" not in removed
-
-
 def test_multiple_resolution_labels_all_removed(config, mock_client):
     """All resolution labels are cleaned even if multiple are present."""
     payload = {

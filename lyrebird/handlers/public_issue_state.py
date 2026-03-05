@@ -1,4 +1,4 @@
-"""Handle public issue closed/reopened: update private labels + audit comment."""
+"""Handle public issue closed/reopened: sync state + audit comment."""
 
 from __future__ import annotations
 
@@ -27,15 +27,9 @@ def handle(client: Github, config: Config, payload: dict) -> None:
         return
 
     private_issue = mapping.private_issue
-    priv_repo = private_issue.repository
     is_reporter = sender == public_issue["user"]["login"]
 
     if action == "closed":
-        _ensure_and_add_label(priv_repo, private_issue, config.closed_label)
-        if is_reporter:
-            _ensure_and_add_label(
-                priv_repo, private_issue, config.closed_by_reporter_label
-            )
         audit = f"Public issue closed by @{sender}"
         if is_reporter:
             audit += " (original reporter)"
@@ -60,18 +54,3 @@ def handle(client: Github, config: Config, payload: dict) -> None:
         action,
         mapping.private_issue_number,
     )
-
-
-def _ensure_and_add_label(repo, issue, label_name: str) -> None:
-    """Ensure label exists and add it to the issue."""
-    try:
-        repo.get_label(label_name)
-    except Exception:
-        try:
-            repo.create_label(name=label_name, color="e4e669")
-        except Exception:
-            pass
-    try:
-        issue.add_to_labels(label_name)
-    except Exception:
-        pass

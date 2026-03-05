@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 from lyrebird.handlers.public_issue_state import handle
 from tests.conftest import make_mock_issue, make_public_issue_payload
@@ -20,8 +20,6 @@ def _setup_mocks(config, mock_client):
     mock_pub_issue_obj.get_comments.return_value = [mapping_comment]
 
     mock_private = make_mock_issue(number=10)
-    mock_priv_repo_inner = MagicMock()
-    type(mock_private).repository = property(lambda self: mock_priv_repo_inner)
 
     def get_repo(name):
         if name == config.public_repo:
@@ -32,10 +30,10 @@ def _setup_mocks(config, mock_client):
     mock_pub_repo.get_issue.return_value = mock_pub_issue_obj
     mock_priv_repo.get_issue.return_value = mock_private
 
-    return mock_private, mock_priv_repo_inner
+    return mock_private
 
 
-def test_close_adds_label(config, mock_client):
+def test_close_posts_audit(config, mock_client):
     public_issue = make_public_issue_payload(user_login="reporter")
     payload = {
         "action": "closed",
@@ -43,16 +41,15 @@ def test_close_adds_label(config, mock_client):
         "sender": {"login": "closer", "type": "User"},
     }
 
-    mock_private, _ = _setup_mocks(config, mock_client)
+    mock_private = _setup_mocks(config, mock_client)
     handle(mock_client, config, payload)
 
-    mock_private.add_to_labels.assert_any_call("public:closed")
     mock_private.create_comment.assert_called_once()
     audit = mock_private.create_comment.call_args[0][0]
     assert "closed by @closer" in audit
 
 
-def test_close_by_reporter_adds_both_labels(config, mock_client):
+def test_close_by_reporter_notes_reporter(config, mock_client):
     public_issue = make_public_issue_payload(user_login="reporter")
     payload = {
         "action": "closed",
@@ -60,16 +57,14 @@ def test_close_by_reporter_adds_both_labels(config, mock_client):
         "sender": {"login": "reporter", "type": "User"},
     }
 
-    mock_private, _ = _setup_mocks(config, mock_client)
+    mock_private = _setup_mocks(config, mock_client)
     handle(mock_client, config, payload)
 
-    mock_private.add_to_labels.assert_any_call("public:closed")
-    mock_private.add_to_labels.assert_any_call("public:closed-by-reporter")
     audit = mock_private.create_comment.call_args[0][0]
     assert "original reporter" in audit
 
 
-def test_reopen_removes_labels(config, mock_client):
+def test_reopen_posts_audit(config, mock_client):
     public_issue = make_public_issue_payload(user_login="reporter")
     payload = {
         "action": "reopened",
@@ -77,18 +72,11 @@ def test_reopen_removes_labels(config, mock_client):
         "sender": {"login": "reporter", "type": "User"},
     }
 
-    mock_private, _ = _setup_mocks(config, mock_client)
-
-    lbl_closed = MagicMock()
-    lbl_closed.name = "public:closed"
-    lbl_reporter = MagicMock()
-    lbl_reporter.name = "public:closed-by-reporter"
-    mock_private.get_labels.return_value = [lbl_closed, lbl_reporter]
+    mock_private = _setup_mocks(config, mock_client)
+    mock_private.get_labels.return_value = []
 
     handle(mock_client, config, payload)
 
-    mock_private.remove_from_labels.assert_any_call("public:closed")
-    mock_private.remove_from_labels.assert_any_call("public:closed-by-reporter")
     audit = mock_private.create_comment.call_args[0][0]
     assert "reopened" in audit
 
@@ -101,7 +89,7 @@ def test_close_also_closes_private(config, mock_client):
         "sender": {"login": "closer", "type": "User"},
     }
 
-    mock_private, _ = _setup_mocks(config, mock_client)
+    mock_private = _setup_mocks(config, mock_client)
     handle(mock_client, config, payload)
 
     mock_private.edit.assert_called_once_with(state="closed")
@@ -115,7 +103,7 @@ def test_reopen_also_reopens_private(config, mock_client):
         "sender": {"login": "reporter", "type": "User"},
     }
 
-    mock_private, _ = _setup_mocks(config, mock_client)
+    mock_private = _setup_mocks(config, mock_client)
     handle(mock_client, config, payload)
 
     mock_private.edit.assert_called_once_with(state="open")
@@ -131,7 +119,7 @@ def test_close_with_state_reason(config, mock_client):
         "sender": {"login": "closer", "type": "User"},
     }
 
-    mock_private, _ = _setup_mocks(config, mock_client)
+    mock_private = _setup_mocks(config, mock_client)
     handle(mock_client, config, payload)
 
     # We want to sync both state AND state_reason
@@ -146,7 +134,7 @@ def test_reopen_cleans_resolution_labels(config, mock_client):
         "sender": {"login": "reporter", "type": "User"},
     }
 
-    mock_private, _ = _setup_mocks(config, mock_client)
+    mock_private = _setup_mocks(config, mock_client)
 
     # Add resolution labels to the private issue
     lbl1 = MagicMock()
@@ -189,7 +177,7 @@ def test_reopen_by_non_reporter_no_reporter_note(config, mock_client):
         "sender": {"login": "maintainer", "type": "User"},
     }
 
-    mock_private, _ = _setup_mocks(config, mock_client)
+    mock_private = _setup_mocks(config, mock_client)
     mock_private.get_labels.return_value = []
 
     handle(mock_client, config, payload)
@@ -197,25 +185,6 @@ def test_reopen_by_non_reporter_no_reporter_note(config, mock_client):
     audit = mock_private.create_comment.call_args[0][0]
     assert "reopened by @maintainer" in audit
     assert "original reporter" not in audit
-
-
-def test_close_creates_label_when_missing(config, mock_client):
-    """_ensure_and_add_label creates the label if get_label raises."""
-    public_issue = make_public_issue_payload(user_login="reporter")
-    payload = {
-        "action": "closed",
-        "issue": public_issue,
-        "sender": {"login": "closer", "type": "User"},
-    }
-
-    mock_private, mock_priv_repo = _setup_mocks(config, mock_client)
-    mock_priv_repo.get_label.side_effect = Exception("not found")
-
-    handle(mock_client, config, payload)
-
-    mock_priv_repo.create_label.assert_called_with(
-        name="public:closed", color="e4e669"
-    )
 
 
 def test_missing_sender_uses_unknown(config, mock_client):
@@ -227,7 +196,7 @@ def test_missing_sender_uses_unknown(config, mock_client):
         # no "sender" key
     }
 
-    mock_private, _ = _setup_mocks(config, mock_client)
+    mock_private = _setup_mocks(config, mock_client)
 
     handle(mock_client, config, payload)
 
