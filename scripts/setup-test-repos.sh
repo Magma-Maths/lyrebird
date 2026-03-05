@@ -161,7 +161,7 @@ gh label create "resolution:none"             --repo "$PRIVATE_REPO" --color "fb
 echo "==> Creating delayed-5min environment on $PRIVATE_REPO..."
 
 gh api --method PUT "repos/$PRIVATE_REPO/environments/delayed-5min" \
-    --field wait_timer=5 \
+    --input - <<< '{"wait_timer": 5}' \
     >/dev/null 2>&1 && echo "  delayed-5min (5 min wait timer)" || echo "  ⚠ Could not create environment (may need admin access)"
 
 # ── Done ─────────────────────────────────────────────────────────────────────
