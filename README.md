@@ -75,10 +75,8 @@ See [INSTALL.md](INSTALL.md) for full installation instructions.
 ## Development
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-pytest
+poetry install
+poetry run pytest
 ```
 
 ## Contributing
