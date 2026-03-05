@@ -79,6 +79,37 @@ announce() {
         >/dev/null 2>&1
 }
 
+CHECKS_PASSED=0
+CHECKS_FAILED=0
+
+check() {
+    local desc="$1"
+    shift
+    if "$@" 2>/dev/null; then
+        echo "  ✓ CHECK: $desc"
+        ((CHECKS_PASSED++))
+    else
+        echo "  ✗ CHECK: $desc"
+        ((CHECKS_FAILED++))
+    fi
+}
+
+check_title_contains() {
+    gh issue view "$2" --repo "$1" --json title --jq '.title' | grep -q "$3"
+}
+
+check_state() {
+    [[ $(gh issue view "$2" --repo "$1" --json state --jq '.state') == "$3" ]]
+}
+
+check_has_label() {
+    gh issue view "$2" --repo "$1" --json labels --jq '.labels[].name' | grep -q "^${3}$"
+}
+
+check_comments_contain() {
+    gh api "repos/$1/issues/$2/comments" --jq '.[].body' | grep -q "$3"
+}
+
 echo
 echo "Lyrebird Demo Generator"
 echo "======================="
@@ -126,6 +157,8 @@ if [[ -z "$PRIVATE1_NUM" ]]; then
     echo "  ⚠ Could not find private mirror. Skipping rest of Issue 1."
 else
     echo "  Mirrored to private #$PRIVATE1_NUM"
+    check "Private issue title has [public #$ISSUE1_NUM] prefix" \
+        check_title_contains "$PRIVATE_REPO" "$PRIVATE1_NUM" "\[public #$ISSUE1_NUM\]"
 
     # Comment
     announce "$PRIVATE1_NUM" "A public user is posting additional debug info (a stack trace)."
@@ -144,6 +177,8 @@ This might be related to the mmap allocation."
     wait_for_run "$PUBLIC_REPO"
     wait_for_run "$PRIVATE_REPO"
     echo "  ✓ Comment mirrored"
+    check "Comment mirrored to private" \
+        check_comments_contain "$PRIVATE_REPO" "$PRIVATE1_NUM" "mmap"
 
     # Edit
     announce "$PRIVATE1_NUM" "The reporter is editing the issue to add environment details (OS, version, RAM). The private body will update in place."
@@ -170,6 +205,8 @@ This might be related to the mmap allocation."
     wait_for_run "$PUBLIC_REPO"
     wait_for_run "$PRIVATE_REPO"
     echo "  ✓ Edit mirrored"
+    check "Title updated on private" \
+        check_title_contains "$PRIVATE_REPO" "$PRIVATE1_NUM" "files larger than 2GB"
 
     # Label
     announce "$PRIVATE1_NUM" "Adding a 'bug' label on the public side — Lyrebird will mirror it here."
@@ -178,6 +215,8 @@ This might be related to the mmap allocation."
     wait_for_run "$PUBLIC_REPO"
     wait_for_run "$PRIVATE_REPO"
     echo "  ✓ Label mirrored"
+    check "Bug label on private issue" \
+        check_has_label "$PRIVATE_REPO" "$PRIVATE1_NUM" "bug"
 
     # Type
     announce "$PRIVATE1_NUM" "Setting the issue type to 'Bug' on the public side — Lyrebird will mirror it here."
@@ -266,6 +305,8 @@ Let me know if you need anything else.
     wait_for_run "$PUBLIC_REPO"
     wait_for_run "$PRIVATE_REPO"
     echo "  ✓ Comment edit mirrored"
+    check "Redacted password in mirrored comment" \
+        check_comments_contain "$PRIVATE_REPO" "$PRIVATE2_NUM" "redacted password"
 
     # Delete comment entirely
     announce "$PRIVATE2_NUM" "The user decided to delete the comment entirely. Lyrebird will replace the mirrored copy with a tombstone to preserve context."
@@ -274,6 +315,8 @@ Let me know if you need anything else.
     wait_for_run "$PUBLIC_REPO"
     wait_for_run "$PRIVATE_REPO"
     echo "  ✓ Comment replaced with tombstone"
+    check "Tombstone comment on private" \
+        check_comments_contain "$PRIVATE_REPO" "$PRIVATE2_NUM" "deleted"
 fi
 
 echo
@@ -324,6 +367,8 @@ The docs are being updated — sorry for the confusion.'
 
     wait_for_run "$PRIVATE_REPO"
     echo "  ✓ Anonymous reply posted on public issue"
+    check "Anonymous reply visible on public issue" \
+        check_comments_contain "$PUBLIC_REPO" "$ISSUE3_NUM" "parallel processing"
 
     # /anon — anonymous follow-up
     announce "$PRIVATE3_NUM" "Another team member adds an anonymous follow-up using \`/anon\`."
@@ -370,6 +415,8 @@ else
     wait_for_run "$PUBLIC_REPO"
     wait_for_run "$PRIVATE_REPO"
     echo "  ✓ Private issue closed"
+    check "Private issue is closed" \
+        check_state "$PRIVATE_REPO" "$PRIVATE4_NUM" "CLOSED"
 
     # Reopen public
     announce "$PRIVATE4_NUM" "The reporter reopened — turns out the typo is on a different page. Lyrebird will reopen this private issue too."
@@ -378,6 +425,10 @@ else
     wait_for_run "$PUBLIC_REPO"
     wait_for_run "$PRIVATE_REPO"
     echo "  ✓ Both issues reopened"
+    check "Private issue is open" \
+        check_state "$PRIVATE_REPO" "$PRIVATE4_NUM" "OPEN"
+    check "Public issue is open" \
+        check_state "$PUBLIC_REPO" "$ISSUE4_NUM" "OPEN"
 fi
 
 echo
@@ -416,6 +467,8 @@ else
 
     wait_for_run "$PRIVATE_REPO"
     echo "  ✓ Public issue closed; delayed check will add 'resolution:none' if no label is added"
+    check "Public issue is closed" \
+        check_state "$PUBLIC_REPO" "$ISSUE5_NUM" "CLOSED"
 
     # Reopen and close properly with resolution label
     announce "$PRIVATE5_NUM" "Reopening to fix the closure. Will add a resolution label and close again properly."
@@ -435,6 +488,10 @@ else
 
     wait_for_run "$PRIVATE_REPO"
     echo "  ✓ Both issues closed with 'not-planned' resolution"
+    check "Public issue is closed" \
+        check_state "$PUBLIC_REPO" "$ISSUE5_NUM" "CLOSED"
+    check "Resolution note posted on public" \
+        check_comments_contain "$PUBLIC_REPO" "$ISSUE5_NUM" "not planned"
 fi
 
 echo
@@ -477,6 +534,11 @@ echo "  5. Resolution enforcement (nudge → proper label + close)"
 echo "     Public:  $ISSUE5_URL"
 if [[ -n "${PRIVATE5_NUM:-}" ]]; then
 echo "     Private: https://github.com/$PRIVATE_REPO/issues/$PRIVATE5_NUM"
+fi
+echo
+echo "  Verification: $CHECKS_PASSED passed, $CHECKS_FAILED failed"
+if [[ $CHECKS_FAILED -gt 0 ]]; then
+    echo "  ⚠ Some checks failed — review the output above."
 fi
 echo
 echo "  Share these links with your collaborators to explore!"
