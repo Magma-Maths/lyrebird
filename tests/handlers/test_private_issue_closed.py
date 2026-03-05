@@ -51,7 +51,7 @@ def _setup_mocks(config, mock_client, private_labels: list[str]):
 def test_one_resolution_label_closes_public(config, mock_client):
     payload = _make_payload()
     priv_issue, pub_issue, _ = _setup_mocks(
-        config, mock_client, ["external:completed"]
+        config, mock_client, ["resolution:completed"]
     )
 
     handle(mock_client, config, payload)
@@ -71,8 +71,8 @@ def test_zero_resolution_labels_nudges(config, mock_client):
 
     handle(mock_client, config, payload)
 
-    # Should add needs-public-resolution and comment
-    priv_issue.add_to_labels.assert_called_with("needs-public-resolution")
+    # Should add resolution:none and comment
+    priv_issue.add_to_labels.assert_called_with("resolution:none")
     priv_issue.create_comment.assert_called_once()
     msg = priv_issue.create_comment.call_args[0][0]
     assert "resolution label" in msg
@@ -83,12 +83,12 @@ def test_zero_resolution_labels_nudges(config, mock_client):
 def test_multiple_resolution_labels_nudges(config, mock_client):
     payload = _make_payload()
     priv_issue, pub_issue, _ = _setup_mocks(
-        config, mock_client, ["external:completed", "external:not-planned"]
+        config, mock_client, ["resolution:completed", "resolution:not-planned"]
     )
 
     handle(mock_client, config, payload)
 
-    priv_issue.add_to_labels.assert_called_with("needs-public-resolution")
+    priv_issue.add_to_labels.assert_called_with("resolution:none")
     pub_issue.edit.assert_not_called()
 
 
@@ -110,7 +110,7 @@ def test_not_mirrored_issue_skips(config, mock_client):
 def test_public_already_closed_skips_close(config, mock_client):
     payload = _make_payload()
     priv_issue, pub_issue, _ = _setup_mocks(
-        config, mock_client, ["external:completed"]
+        config, mock_client, ["resolution:completed"]
     )
     pub_issue.state = "closed"
 

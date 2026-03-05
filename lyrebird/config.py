@@ -25,6 +25,7 @@ DEFAULT_RESOLUTION_NOTES: dict[str, tuple[str, str | None]] = {
         "If you can share steps/logs, we can reopen.",
         "not_planned",
     ),
+    "custom": ("", None),
 }
 
 
@@ -44,7 +45,7 @@ class Config:
     mapping_comment_template: str = (
         "Thanks for the report! Our team is tracking this and will post updates here."
     )
-    needs_resolution_label: str = "needs-public-resolution"
+    needs_resolution_label: str = "resolution:none"
 
     @property
     def public_owner(self) -> str:
@@ -93,10 +94,10 @@ def _build_resolution_labels(
 
     Expected JSON format:
     {
-        "completed": {"label": "external:completed", "note": "...", "state_reason": "completed"},
+        "completed": {"label": "resolution:completed", "note": "...", "state_reason": "completed"},
         ...
     }
-    If not provided, uses DEFAULT_RESOLUTION_NOTES with label prefix "external:".
+    If not provided, uses DEFAULT_RESOLUTION_NOTES with label prefix "resolution:".
     """
     if raw:
         data = json.loads(raw)
@@ -109,10 +110,10 @@ def _build_resolution_labels(
             )
         return result
 
-    # Default: key -> (external:<key>, default note, default state_reason)
+    # Default: key -> (resolution:<key>, default note, default state_reason)
     result = {}
     for key, (note, state_reason) in DEFAULT_RESOLUTION_NOTES.items():
-        result[key] = (f"external:{key}", note, state_reason)
+        result[key] = (f"resolution:{key}", note, state_reason)
     return result
 
 
@@ -130,6 +131,6 @@ def load_config() -> Config:
             "Thanks for the report! Our team is tracking this and will post updates here.",
         ),
         needs_resolution_label=os.environ.get(
-            "NEEDS_RESOLUTION_LABEL", "needs-public-resolution"
+            "NEEDS_RESOLUTION_LABEL", "resolution:none"
         ),
     )

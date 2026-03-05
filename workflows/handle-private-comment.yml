@@ -55,8 +55,9 @@ jobs:
           # close note, and GitHub state_reason.  Customise as needed.
           RESOLUTION_LABELS: >-
             {
-              "completed":        {"label": "external:completed",        "note": "This has been fixed and will be available in the next update. Thanks for the report. If you still see this after updating, please comment here with details.", "state_reason": "completed"},
-              "not-planned":      {"label": "external:not-planned",      "note": "Closing as not planned at this time. Thanks for taking the time to report it.",                               "state_reason": "not_planned"},
-              "cannot-reproduce": {"label": "external:cannot-reproduce", "note": "We could not reproduce this with the information available. If you can share steps/logs, we can reopen.",      "state_reason": "not_planned"}
+              "completed":        {"label": "resolution:completed",        "note": "This has been fixed and will be available in the next update. Thanks for the report. If you still see this after updating, please comment here with details.", "state_reason": "completed"},
+              "not-planned":      {"label": "resolution:not-planned",      "note": "Closing as not planned at this time. Thanks for taking the time to report it.",                               "state_reason": "not_planned"},
+              "cannot-reproduce": {"label": "resolution:cannot-reproduce", "note": "We could not reproduce this with the information available. If you can share steps/logs, we can reopen.",      "state_reason": "not_planned"},
+              "custom":           {"label": "resolution:custom",           "note": "",                                                                                                            "state_reason": null}
             }
         run: python -m lyrebird

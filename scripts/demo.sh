@@ -411,11 +411,11 @@ else
     echo "  Mirrored to private #$PRIVATE5_NUM"
 
     # Close private without resolution label — triggers nudge
-    announce "$PRIVATE5_NUM" "A team member is closing this private issue *without* a resolution label. Lyrebird will detect this and add a \`needs-public-resolution\` label with a comment explaining how to close properly."
+    announce "$PRIVATE5_NUM" "A team member is closing this private issue *without* a resolution label. Lyrebird will close the public issue immediately and, after a 5-minute grace period, add a \`resolution:none\` label with a nudge comment."
     gh issue close "$PRIVATE5_NUM" --repo "$PRIVATE_REPO"
 
     wait_for_run "$PRIVATE_REPO"
-    echo "  ✓ Lyrebird adds 'needs-public-resolution' label and explains what to do"
+    echo "  ✓ Public issue closed; delayed check will add 'resolution:none' if no label is added"
 
     # Reopen and close properly with resolution label
     announce "$PRIVATE5_NUM" "Reopening to fix the closure. Will add a resolution label and close again properly."
@@ -430,7 +430,7 @@ else
 
     wait_for_run "$PRIVATE_REPO"
 
-    gh issue edit "$PRIVATE5_NUM" --repo "$PRIVATE_REPO" --add-label "external:not-planned"
+    gh issue edit "$PRIVATE5_NUM" --repo "$PRIVATE_REPO" --add-label "resolution:not-planned"
     gh issue close "$PRIVATE5_NUM" --repo "$PRIVATE_REPO"
 
     wait_for_run "$PRIVATE_REPO"

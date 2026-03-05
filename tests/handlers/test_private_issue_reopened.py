@@ -23,9 +23,9 @@ def test_removes_resolution_and_needs_resolution(config, mock_client):
     mock_priv_issue = MagicMock()
 
     lbl1 = MagicMock()
-    lbl1.name = "external:completed"
+    lbl1.name = "resolution:completed"
     lbl2 = MagicMock()
-    lbl2.name = "needs-public-resolution"
+    lbl2.name = "resolution:none"
     lbl3 = MagicMock()
     lbl3.name = "unrelated"
     mock_priv_issue.get_labels.return_value = [lbl1, lbl2, lbl3]
@@ -35,8 +35,8 @@ def test_removes_resolution_and_needs_resolution(config, mock_client):
 
     handle(mock_client, config, payload)
 
-    mock_priv_issue.remove_from_labels.assert_any_call("external:completed")
-    mock_priv_issue.remove_from_labels.assert_any_call("needs-public-resolution")
+    mock_priv_issue.remove_from_labels.assert_any_call("resolution:completed")
+    mock_priv_issue.remove_from_labels.assert_any_call("resolution:none")
     # Should NOT remove unrelated labels
     calls = [c[0][0] for c in mock_priv_issue.remove_from_labels.call_args_list]
     assert "unrelated" not in calls
@@ -162,10 +162,10 @@ def test_multiple_resolution_labels_all_removed(config, mock_client):
 
     labels = []
     for name in [
-        "external:completed",
-        "external:not-planned",
-        "external:cannot-reproduce",
-        "needs-public-resolution",
+        "resolution:completed",
+        "resolution:not-planned",
+        "resolution:cannot-reproduce",
+        "resolution:none",
     ]:
         lbl = MagicMock()
         lbl.name = name
@@ -179,10 +179,10 @@ def test_multiple_resolution_labels_all_removed(config, mock_client):
 
     removed = {c[0][0] for c in mock_priv_issue.remove_from_labels.call_args_list}
     assert removed == {
-        "external:completed",
-        "external:not-planned",
-        "external:cannot-reproduce",
-        "needs-public-resolution",
+        "resolution:completed",
+        "resolution:not-planned",
+        "resolution:cannot-reproduce",
+        "resolution:none",
     }
 
 

@@ -138,16 +138,16 @@ def test_reopen_cleans_resolution_labels(config, mock_client):
 
     # Add resolution labels to the private issue
     lbl1 = MagicMock()
-    lbl1.name = "external:completed"
+    lbl1.name = "resolution:completed"
     lbl2 = MagicMock()
-    lbl2.name = "needs-public-resolution"
+    lbl2.name = "resolution:none"
     mock_private.get_labels.return_value = [lbl1, lbl2]
 
     handle(mock_client, config, payload)
 
     removed = {c[0][0] for c in mock_private.remove_from_labels.call_args_list}
-    assert "external:completed" in removed
-    assert "needs-public-resolution" in removed
+    assert "resolution:completed" in removed
+    assert "resolution:none" in removed
 
 
 def test_no_mapping_returns_early(config, mock_client):

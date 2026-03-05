@@ -23,17 +23,20 @@ Posts `<message>` as an anonymous comment on the public issue and acknowledges i
 ## Closing behavior
 
 When a private issue is closed:
-- With **exactly one** resolution label &rarr; the public issue is closed with the corresponding default note.
-- With **zero or multiple** resolution labels &rarr; a `needs-public-resolution` label is applied and a comment explains what to do.
+- The **public issue is always closed immediately**.
+- With **exactly one** resolution label &rarr; the predefined note is posted on the public issue.
+- With **zero or multiple** resolution labels &rarr; the public issue is closed with no comment. A delayed check (5-minute grace period) then nudges on the private issue with a `resolution:none` label if no resolution was added in the meantime.
 
-When a private issue is reopened, resolution and `needs-public-resolution` labels are removed, and the public issue is reopened if it was closed.
+When a private issue is reopened, resolution and `resolution:none` labels are removed, and the public issue is reopened if it was closed.
+
+Using `/anon` on a closed issue automatically adds `resolution:custom` if no other resolution label is present.
 
 ## Resolution labels
 
 Resolution labels control the automatic close behavior. Each has four parts:
 
 - **key** &mdash; the resolution identifier (e.g. `completed`, `not-planned`)
-- **label** &mdash; the private-repo label applied (e.g. `external:completed`)
+- **label** &mdash; the private-repo label applied (e.g. `resolution:completed`)
 - **note** &mdash; the default message posted on the public issue
 - **state_reason** &mdash; the GitHub close reason (`completed` or `not_planned`)
 
@@ -41,17 +44,19 @@ Defaults:
 
 | Key | Label | Default public note | State reason |
 |-----|-------|---------------------|--------------|
-| `completed` | `external:completed` | This has been fixed and will be available in the next update. Thanks for the report. If you still see this after updating, please comment here with details. | `completed` |
-| `not-planned` | `external:not-planned` | Closing as not planned at this time. Thanks for taking the time to report it. | `not_planned` |
-| `cannot-reproduce` | `external:cannot-reproduce` | We could not reproduce this with the information available. If you can share steps/logs, we can reopen. | `not_planned` |
+| `completed` | `resolution:completed` | This has been fixed and will be available in the next update. Thanks for the report. If you still see this after updating, please comment here with details. | `completed` |
+| `not-planned` | `resolution:not-planned` | Closing as not planned at this time. Thanks for taking the time to report it. | `not_planned` |
+| `cannot-reproduce` | `resolution:cannot-reproduce` | We could not reproduce this with the information available. If you can share steps/logs, we can reopen. | `not_planned` |
+| `custom` | `resolution:custom` | *(none)* | *(none)* |
 
 These are set explicitly in the workflow templates (`RESOLUTION_LABELS` in the `env:` block of each `handle-*.yml`). To customize, edit them there or set `RESOLUTION_LABELS` as JSON:
 
 ```json
 {
-  "completed":        {"label": "external:completed",        "note": "Custom note.",  "state_reason": "completed"},
-  "not-planned":      {"label": "external:not-planned",      "note": "Custom note.",  "state_reason": "not_planned"},
-  "cannot-reproduce": {"label": "external:cannot-reproduce", "note": "Custom note.",  "state_reason": "not_planned"}
+  "completed":        {"label": "resolution:completed",        "note": "Custom note.",  "state_reason": "completed"},
+  "not-planned":      {"label": "resolution:not-planned",      "note": "Custom note.",  "state_reason": "not_planned"},
+  "cannot-reproduce": {"label": "resolution:cannot-reproduce", "note": "Custom note.",  "state_reason": "not_planned"},
+  "custom":           {"label": "resolution:custom",           "note": "",              "state_reason": null}
 }
 ```
 
