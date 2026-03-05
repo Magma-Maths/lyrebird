@@ -41,7 +41,7 @@ Deploys Lyrebird workflows and configuration to your repositories based on an en
 ```
 
 ## `sync-labels.sh`
-Synchronizes the custom Lyrebird resolution labels (e.g., `external:completed`, `external:not-planned`) into your private repository.
+Synchronizes the custom Lyrebird resolution labels (e.g., `resolution:completed`, `resolution:not-planned`) into your private repository.
 
 **Usage:**
 ```bash

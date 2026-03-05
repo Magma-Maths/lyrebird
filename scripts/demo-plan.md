@@ -68,11 +68,11 @@ timeline alongside Lyrebird's mirrored content.
 **Shows:** nudge on improper close, proper label + close
 
 1. Create public issue (feature request). Wait for mirror.
-2. **Announce:** "A team member is closing this private issue *without* a resolution label. Lyrebird will detect this and add a `needs-public-resolution` label with a comment explaining how to close properly."
-3. Close private issue natively. Wait for sync → nudge + `needs-public-resolution`.
+2. **Announce:** "A team member is closing this private issue *without* a resolution label. Lyrebird will close the public issue immediately and, after a 5-minute grace period, add a `resolution:none` label with a nudge comment."
+3. Close private issue natively. Wait for sync → public closed, delayed nudge + `resolution:none`.
 4. **Announce:** "Reopening to fix the closure. Will add a resolution label and close again properly."
 5. Reopen private issue. Wait for sync.
-6. Post `/anon` with a custom note, add `external:not-planned` label, close. Wait for sync → both closed.
+6. Post `/anon` with a custom note, add `resolution:not-planned` label, close. Wait for sync → both closed.
 
 ## Summary Output
 
