@@ -50,11 +50,19 @@ def handle(client: Github, config: Config, payload: dict) -> None:
         f"`{name}`"
         for name in sorted(all_resolution_labels - {config.needs_resolution_label})
     )
-    priv_issue.create_comment(
-        "No resolution posted publicly. Add exactly one resolution label "
-        f"({allowed}), or use `/anon`."
-    )
+    if len(resolution_labels_present) > 1:
+        msg = (
+            f"Multiple resolution labels present ({len(resolution_labels_present)}). "
+            f"Remove extras so exactly one remains ({allowed}), or use `/anon`."
+        )
+    else:
+        msg = (
+            "No resolution posted publicly. Add exactly one resolution label "
+            f"({allowed}), or use `/anon`."
+        )
+    priv_issue.create_comment(msg)
     logger.info(
-        "Private #%d closed without resolution, nudged after grace period",
+        "Private #%d closed with %d resolution labels, nudged after grace period",
         issue["number"],
+        len(resolution_labels_present),
     )

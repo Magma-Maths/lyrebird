@@ -12,6 +12,24 @@ concurrency:
   group: private-issue-${{ github.event.issue.node_id }}
   cancel-in-progress: false
 
+# Shared env vars — available to all jobs/steps.
+env:
+  PUBLIC_REPO: ${{ vars.PUBLIC_REPO }}
+  PRIVATE_REPO: ${{ vars.PRIVATE_REPO }}
+  BOT_LOGIN: ${{ vars.BOT_LOGIN }}
+  EVENT_NAME: ${{ github.event_name }}
+  EVENT_SOURCE: private
+  EVENT_PAYLOAD: ${{ toJson(github.event) }}
+  # Resolution labels: maps resolution key → private label, public
+  # close note, and GitHub state_reason.  Customise as needed.
+  RESOLUTION_LABELS: >-
+    {
+      "completed":        {"label": "resolution:completed",        "note": "This has been fixed and will be available in the next update. Thanks for the report. If you still see this after updating, please comment here with details.", "state_reason": "completed"},
+      "not-planned":      {"label": "resolution:not-planned",      "note": "Closing as not planned at this time. Thanks for taking the time to report it.",                               "state_reason": "not_planned"},
+      "cannot-reproduce": {"label": "resolution:cannot-reproduce", "note": "We could not reproduce this with the information available. If you can share steps/logs, we can reopen.",      "state_reason": "not_planned"},
+      "custom":           {"label": "resolution:custom",           "note": "",                                                                                                            "state_reason": null}
+    }
+
 jobs:
   handle:
     if: github.repository == vars.PRIVATE_REPO
@@ -43,22 +61,7 @@ jobs:
       - name: Run handler
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          PUBLIC_REPO: ${{ vars.PUBLIC_REPO }}
-          PRIVATE_REPO: ${{ vars.PRIVATE_REPO }}
-          BOT_LOGIN: ${{ vars.BOT_LOGIN }}
-          EVENT_NAME: ${{ github.event_name }}
           EVENT_ACTION: ${{ github.event.action }}
-          EVENT_SOURCE: private
-          EVENT_PAYLOAD: ${{ toJson(github.event) }}
-          # Resolution labels: maps resolution key → private label, public
-          # close note, and GitHub state_reason.  Customise as needed.
-          RESOLUTION_LABELS: >-
-            {
-              "completed":        {"label": "resolution:completed",        "note": "This has been fixed and will be available in the next update. Thanks for the report. If you still see this after updating, please comment here with details.", "state_reason": "completed"},
-              "not-planned":      {"label": "resolution:not-planned",      "note": "Closing as not planned at this time. Thanks for taking the time to report it.",                               "state_reason": "not_planned"},
-              "cannot-reproduce": {"label": "resolution:cannot-reproduce", "note": "We could not reproduce this with the information available. If you can share steps/logs, we can reopen.",      "state_reason": "not_planned"},
-              "custom":           {"label": "resolution:custom",           "note": "",                                                                                                            "state_reason": null}
-            }
         run: python -m lyrebird
 
   delayed-close-check:
@@ -93,18 +96,5 @@ jobs:
       - name: Run delayed close check
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          PUBLIC_REPO: ${{ vars.PUBLIC_REPO }}
-          PRIVATE_REPO: ${{ vars.PRIVATE_REPO }}
-          BOT_LOGIN: ${{ vars.BOT_LOGIN }}
-          EVENT_NAME: ${{ github.event_name }}
           EVENT_ACTION: closed_check
-          EVENT_SOURCE: private
-          EVENT_PAYLOAD: ${{ toJson(github.event) }}
-          RESOLUTION_LABELS: >-
-            {
-              "completed":        {"label": "resolution:completed",        "note": "This has been fixed and will be available in the next update. Thanks for the report. If you still see this after updating, please comment here with details.", "state_reason": "completed"},
-              "not-planned":      {"label": "resolution:not-planned",      "note": "Closing as not planned at this time. Thanks for taking the time to report it.",                               "state_reason": "not_planned"},
-              "cannot-reproduce": {"label": "resolution:cannot-reproduce", "note": "We could not reproduce this with the information available. If you can share steps/logs, we can reopen.",      "state_reason": "not_planned"},
-              "custom":           {"label": "resolution:custom",           "note": "",                                                                                                            "state_reason": null}
-            }
         run: python -m lyrebird

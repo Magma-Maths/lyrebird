@@ -68,7 +68,7 @@ def test_no_resolution_label_nudges(config, mock_client):
     priv_issue.add_to_labels.assert_called_once_with("resolution:none")
     priv_issue.create_comment.assert_called_once()
     msg = priv_issue.create_comment.call_args[0][0]
-    assert "resolution label" in msg
+    assert "No resolution posted" in msg
     assert "/anon" in msg
 
 
@@ -107,6 +107,9 @@ def test_multiple_resolution_labels_nudges(config, mock_client):
 
     handle(mock_client, config, payload)
 
-    # >1 resolution labels means no single resolution; nudge
+    # >1 resolution labels means no single resolution; nudge with different message
     priv_issue.add_to_labels.assert_called_once_with("resolution:none")
     priv_issue.create_comment.assert_called_once()
+    msg = priv_issue.create_comment.call_args[0][0]
+    assert "Multiple resolution labels" in msg
+    assert "/anon" in msg

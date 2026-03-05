@@ -97,6 +97,15 @@ Set on **both** repos (Settings > Secrets and variables > Actions > Secrets):
 |--------|-------|
 | `LYREBIRD_APP_PRIVATE_KEY` | Contents of the `.pem` file |
 
+### Delayed close environment
+
+The private repo needs a **`delayed-5min`** environment with a wait timer. This gives maintainers a grace period to add a resolution label or post a custom message via `/anon` before the system nudges.
+
+1. Go to the **private repo** → Settings → Environments → **New environment**
+2. Name it `delayed-5min`
+3. Under **Environment protection rules**, set **Wait timer** to `5` (minutes)
+4. Click **Save protection rules**
+
 ## 5. Verify
 
 Open a test issue on the public repo. Within a minute you should see:

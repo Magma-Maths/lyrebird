@@ -156,6 +156,14 @@ gh label create "resolution:cannot-reproduce" --repo "$PRIVATE_REPO" --color "e4
 gh label create "resolution:custom"           --repo "$PRIVATE_REPO" --color "c5def5" --description "Custom resolution via /anon" --force 2>/dev/null && echo "  resolution:custom" || true
 gh label create "resolution:none"             --repo "$PRIVATE_REPO" --color "fbca04" --description "Close requires a resolution label" --force 2>/dev/null && echo "  resolution:none" || true
 
+# ── Create delayed-5min environment on private repo ──────────────────────────
+
+echo "==> Creating delayed-5min environment on $PRIVATE_REPO..."
+
+gh api --method PUT "repos/$PRIVATE_REPO/environments/delayed-5min" \
+    --field wait_timer=5 \
+    >/dev/null 2>&1 && echo "  delayed-5min (5 min wait timer)" || echo "  ⚠ Could not create environment (may need admin access)"
+
 # ── Done ─────────────────────────────────────────────────────────────────────
 
 echo
