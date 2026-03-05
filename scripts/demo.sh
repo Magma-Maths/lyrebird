@@ -87,10 +87,10 @@ check() {
     shift
     if "$@" 2>/dev/null; then
         echo "  ✓ CHECK: $desc"
-        ((CHECKS_PASSED++))
+        ((CHECKS_PASSED++)) || true
     else
         echo "  ✗ CHECK: $desc"
-        ((CHECKS_FAILED++))
+        ((CHECKS_FAILED++)) || true
     fi
 }
 
