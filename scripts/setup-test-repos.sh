@@ -146,6 +146,15 @@ git add .
 git commit -q -m "ci: add lyrebird handler workflows"
 git push -q -u origin main
 
+# ── Create resolution labels on private repo ─────────────────────────────────
+
+echo "==> Creating resolution labels on $PRIVATE_REPO..."
+
+gh label create "external:completed"        --repo "$PRIVATE_REPO" --color "0e8a16" --description "Resolved: completed"        --force 2>/dev/null && echo "  external:completed" || true
+gh label create "external:not-planned"      --repo "$PRIVATE_REPO" --color "e4e669" --description "Resolved: not planned"      --force 2>/dev/null && echo "  external:not-planned" || true
+gh label create "external:cannot-reproduce" --repo "$PRIVATE_REPO" --color "e4e669" --description "Resolved: cannot reproduce" --force 2>/dev/null && echo "  external:cannot-reproduce" || true
+gh label create "needs-public-resolution"   --repo "$PRIVATE_REPO" --color "fbca04" --description "Close requires a resolution label" --force 2>/dev/null && echo "  needs-public-resolution" || true
+
 # ── Done ─────────────────────────────────────────────────────────────────────
 
 echo
