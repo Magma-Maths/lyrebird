@@ -10,6 +10,7 @@ from github import Github
 from lyrebird.config import Config
 from lyrebird.handlers import (
     private_issue_closed,
+    private_issue_closed_check,
     private_issue_reopened,
     private_issue_typed,
     private_labels_changed,
@@ -54,6 +55,7 @@ PUBLIC_ROUTES: dict[tuple[str, str], Handler] = {
 
 PRIVATE_ROUTES: dict[tuple[str, str], Handler] = {
     ("issues", "closed"): private_issue_closed.handle,
+    ("issues", "closed_check"): private_issue_closed_check.handle,
     ("issues", "reopened"): private_issue_reopened.handle,
     ("issues", "labeled"): private_labels_changed.handle,
     ("issues", "unlabeled"): private_labels_changed.handle,

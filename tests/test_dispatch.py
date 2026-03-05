@@ -47,6 +47,14 @@ def test_route_private_comment_slash_anon(config, mock_client):
         mod.handle.assert_called_once_with(mock_client, config, payload)
 
 
+def test_route_private_issue_closed_check(config, mock_client):
+    payload = {"issue": {"number": 1}}
+    mock_handler = MagicMock()
+    with patch.dict(dispatch.PRIVATE_ROUTES, {("issues", "closed_check"): mock_handler}):
+        route(mock_client, config, "issues", "closed_check", payload, source="private")
+    mock_handler.assert_called_once_with(mock_client, config, payload)
+
+
 def test_route_private_comment_not_slash(config, mock_client):
     payload = {
         "issue": {"number": 1},
