@@ -75,14 +75,12 @@ def build_private_issue_body(config: Config, public_issue: dict) -> str:
     """Build the body for a new private issue mirroring a public one."""
     url = public_issue["html_url"]
     author = public_issue["user"]["login"]
-    created = public_issue["created_at"]
     node_id = public_issue["node_id"]
     body = public_issue.get("body") or ""
 
     lines = [
         f"**Public issue**: {url}",
         f"**Author**: @{author}",
-        f"**Created**: {created}",
         "",
         BEGIN_PUBLIC_BODY,
         body,

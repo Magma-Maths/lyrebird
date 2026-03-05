@@ -150,7 +150,6 @@ def make_private_issue_body(
     return (
         f"**Public issue**: https://github.com/testorg/public-repo/issues/{public_number}\n"
         f"**Author**: @reporter\n"
-        f"**Created**: 2025-01-01T00:00:00Z\n"
         f"\n"
         f"<!-- BEGIN PUBLIC BODY -->\n"
         f"{public_body}\n"
