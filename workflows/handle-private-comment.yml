@@ -34,7 +34,7 @@ jobs:
   handle:
     # Only run if the comment looks like a slash command
     if: github.repository == vars.PRIVATE_REPO && startsWith(github.event.comment.body, '/anon')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - name: Checkout lyrebird
         uses: actions/checkout@v4

@@ -14,7 +14,7 @@ on:
 jobs:
   dispatch:
     if: github.repository == vars.PUBLIC_REPO
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - name: Generate App token for private repo
         id: app-token

@@ -33,7 +33,7 @@ env:
 jobs:
   handle:
     if: github.repository == vars.PRIVATE_REPO
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - name: Checkout lyrebird
         uses: actions/checkout@v4
@@ -67,9 +67,11 @@ jobs:
   delayed-close-check:
     if: github.repository == vars.PRIVATE_REPO && github.event.action == 'closed'
     needs: handle
-    runs-on: ubuntu-latest
-    environment: delayed-5min
+    runs-on: ubuntu-slim
     steps:
+      - name: Wait 5 minutes
+        run: sleep 300
+
       - name: Checkout lyrebird
         uses: actions/checkout@v4
         with:

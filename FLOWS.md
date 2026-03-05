@@ -153,7 +153,7 @@ flowchart TD
 
 ### Delayed Close Check (5 min after close)
 
-A second workflow job runs after a 5-minute grace period (GitHub Environment Wait Timer). It re-checks the issue state and nudges if no resolution was provided.
+A second workflow job runs after a 5-minute delay in the workflow. It re-checks the issue state and nudges if no resolution was provided.
 
 ```mermaid
 flowchart TD

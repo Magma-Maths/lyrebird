@@ -25,7 +25,7 @@ Posts `<message>` as an anonymous comment on the public issue and acknowledges i
 When a private issue is closed:
 - The **public issue is always closed immediately**.
 - With **exactly one** resolution label &rarr; the predefined note is posted on the public issue.
-- With **zero or multiple** resolution labels &rarr; the public issue is closed with no comment. A delayed check then nudges on the private issue with a `resolution:none` label if no resolution was added. The delay is 5 minutes when a wait timer is configured (requires GitHub Enterprise for private repos); otherwise the check runs immediately.
+- With **zero or multiple** resolution labels &rarr; the public issue is closed with no comment. A 5-minute delayed check then nudges on the private issue with a `resolution:none` label if no resolution was added.
 
 When a private issue is reopened, resolution and `resolution:none` labels are removed, and the public issue is reopened if it was closed.
 
