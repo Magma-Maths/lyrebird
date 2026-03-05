@@ -68,7 +68,7 @@ def handle(client: Github, config: Config, payload: dict) -> None:
 def _maybe_close_public_on_label(
     client: Github, config: Config, priv_issue, pub_repo, public_number: int
 ) -> None:
-    """If private is closed and now has exactly 1 resolution label, close public."""
+    """If private is closed and now has exactly 1 resolution label, post note and close public."""
     all_resolution_labels = config.all_resolution_label_names()
     current_labels = [lbl.name for lbl in priv_issue.get_labels()]
     resolution_present = [l for l in current_labels if l in all_resolution_labels]
@@ -80,19 +80,20 @@ def _maybe_close_public_on_label(
     resolution_key = config.resolution_key_for_label(label_name)
 
     pub_issue = pub_repo.get_issue(public_number)
-    if pub_issue.state == "closed":
-        return
 
     note = config.resolution_note(resolution_key)
     if note:
         pub_issue.create_comment(note)
-    state_reason = config.resolution_state_reason(resolution_key)
-    if state_reason:
-        pub_issue.edit(state="closed", state_reason=state_reason)
-    else:
-        pub_issue.edit(state="closed")
 
-    # Remove needs-resolution
+    # Close public if not already closed
+    if pub_issue.state != "closed":
+        state_reason = config.resolution_state_reason(resolution_key)
+        if state_reason:
+            pub_issue.edit(state="closed", state_reason=state_reason)
+        else:
+            pub_issue.edit(state="closed")
+
+    # Remove resolution:none
     if config.needs_resolution_label in current_labels:
         try:
             priv_issue.remove_from_labels(config.needs_resolution_label)
@@ -100,7 +101,7 @@ def _maybe_close_public_on_label(
             pass
 
     logger.info(
-        "Closed public #%d after resolution label added to closed private #%d",
+        "Posted resolution note on public #%d after label added to closed private #%d",
         public_number,
         priv_issue.number,
     )
