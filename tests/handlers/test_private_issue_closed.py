@@ -63,7 +63,7 @@ def test_one_resolution_label_closes_public(config, mock_client):
     pub_issue.edit.assert_called_once()
 
 
-def test_zero_resolution_labels_nudges(config, mock_client):
+def test_zero_resolution_labels_closes_public_no_comment(config, mock_client):
     payload = _make_payload()
     priv_issue, pub_issue, _ = _setup_mocks(
         config, mock_client, ["unrelated-label"]
@@ -71,16 +71,15 @@ def test_zero_resolution_labels_nudges(config, mock_client):
 
     handle(mock_client, config, payload)
 
-    # Should add resolution:none and comment
-    priv_issue.add_to_labels.assert_called_with("resolution:none")
-    priv_issue.create_comment.assert_called_once()
-    msg = priv_issue.create_comment.call_args[0][0]
-    assert "resolution label" in msg
-    # Should NOT close public
-    pub_issue.edit.assert_not_called()
+    # Should close public with no comment (delayed handler takes over)
+    pub_issue.edit.assert_called_once_with(state="closed")
+    pub_issue.create_comment.assert_not_called()
+    # Should NOT nudge on private
+    priv_issue.add_to_labels.assert_not_called()
+    priv_issue.create_comment.assert_not_called()
 
 
-def test_multiple_resolution_labels_nudges(config, mock_client):
+def test_multiple_resolution_labels_closes_public_no_comment(config, mock_client):
     payload = _make_payload()
     priv_issue, pub_issue, _ = _setup_mocks(
         config, mock_client, ["resolution:completed", "resolution:not-planned"]
@@ -88,8 +87,10 @@ def test_multiple_resolution_labels_nudges(config, mock_client):
 
     handle(mock_client, config, payload)
 
-    priv_issue.add_to_labels.assert_called_with("resolution:none")
-    pub_issue.edit.assert_not_called()
+    # Should close public with no comment
+    pub_issue.edit.assert_called_once_with(state="closed")
+    pub_issue.create_comment.assert_not_called()
+    priv_issue.add_to_labels.assert_not_called()
 
 
 def test_not_mirrored_issue_skips(config, mock_client):

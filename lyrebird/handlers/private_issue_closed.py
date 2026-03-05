@@ -1,4 +1,4 @@
-"""Handle private issue closed: enforce resolution label, maybe close public."""
+"""Handle private issue closed: close public, post resolution note if present."""
 
 from __future__ import annotations
 
@@ -18,7 +18,6 @@ def handle(client: Github, config: Config, payload: dict) -> None:
 
     markers = parse_private_body_markers(issue_body)
     if markers is None:
-        # Not a mirrored issue, nothing to do
         return
 
     public_url, _ = markers
@@ -35,15 +34,14 @@ def handle(client: Github, config: Config, payload: dict) -> None:
         lbl for lbl in current_labels if lbl in all_resolution_labels
     ]
 
-    if len(resolution_labels_present) == 1:
-        # Exactly one resolution label — close public
-        label_name = resolution_labels_present[0]
-        resolution_key = config.resolution_key_for_label(label_name)
+    pub_repo = client.get_repo(config.public_repo)
+    pub_issue = pub_repo.get_issue(public_number)
 
-        pub_repo = client.get_repo(config.public_repo)
-        pub_issue = pub_repo.get_issue(public_number)
-
-        if pub_issue.state != "closed":
+    if pub_issue.state != "closed":
+        if len(resolution_labels_present) == 1:
+            # Post resolution note before closing
+            label_name = resolution_labels_present[0]
+            resolution_key = config.resolution_key_for_label(label_name)
             note = config.resolution_note(resolution_key)
             if note:
                 pub_issue.create_comment(note)
@@ -58,40 +56,12 @@ def handle(client: Github, config: Config, payload: dict) -> None:
                 resolution_key,
                 issue["number"],
             )
-
-        # Remove needs-resolution if present
-        if config.needs_resolution_label in current_labels:
-            try:
-                priv_issue.remove_from_labels(config.needs_resolution_label)
-            except Exception:
-                pass
-
-    else:
-        # 0 or >1 resolution labels — nudge
-        _ensure_label(priv_repo, config.needs_resolution_label)
-        if config.needs_resolution_label not in current_labels:
-            priv_issue.add_to_labels(config.needs_resolution_label)
-
-        allowed = ", ".join(
-            f"`{name}`" for name in sorted(all_resolution_labels)
-        )
-        priv_issue.create_comment(
-            "Public issue is still open. Add exactly one resolution label "
-            f"({allowed}), then close again."
-        )
-        logger.info(
-            "Private #%d closed with %d resolution labels, added %s",
-            issue["number"],
-            len(resolution_labels_present),
-            config.needs_resolution_label,
-        )
-
-
-def _ensure_label(repo, label_name: str) -> None:
-    try:
-        repo.get_label(label_name)
-    except Exception:
-        try:
-            repo.create_label(name=label_name, color="fbca04")
-        except Exception:
-            pass
+        else:
+            # 0 or >1 resolution labels — close public with no comment;
+            # the delayed close check handler will nudge after grace period
+            pub_issue.edit(state="closed")
+            logger.info(
+                "Closed public #%d (no single resolution label) from private #%d",
+                public_number,
+                issue["number"],
+            )
