@@ -36,17 +36,22 @@ step() {
 
 wait_for_run() {
     local repo="$1"
-    echo "  Waiting for workflow on $repo..."
+    local workflow="${2:-}"
+    local wf_args=()
+    if [[ -n "$workflow" ]]; then
+        wf_args=(--workflow "$workflow")
+    fi
+    echo "  Waiting for $workflow on $repo..."
     sleep 5
     for _ in $(seq 1 24); do
-        STATUS=$(gh run list --repo "$repo" --limit 1 --json status --jq '.[0].status' 2>/dev/null || echo "unknown")
+        STATUS=$(gh run list --repo "$repo" "${wf_args[@]}" --limit 1 --json status --jq '.[0].status' 2>/dev/null || echo "unknown")
         if [[ "$STATUS" == "completed" ]]; then
-            CONCLUSION=$(gh run list --repo "$repo" --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "unknown")
+            CONCLUSION=$(gh run list --repo "$repo" "${wf_args[@]}" --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "unknown")
             if [[ "$CONCLUSION" == "success" ]]; then
                 echo "  ✓ Done"
             else
                 echo "  ✗ Workflow failed: $CONCLUSION"
-                echo "    gh run list --repo $repo --limit 1"
+                echo "    gh run list --repo $repo ${wf_args[*]} --limit 1"
             fi
             return
         fi
@@ -149,8 +154,8 @@ ISSUE1_NUM=$(echo "$ISSUE1_URL" | grep -oP '\d+$')
 echo "  Created public #$ISSUE1_NUM: Bug report"
 echo "  $ISSUE1_URL"
 
-wait_for_run "$PUBLIC_REPO"
-wait_for_run "$PRIVATE_REPO"
+wait_for_run "$PUBLIC_REPO" "public-dispatch.yml"
+wait_for_run "$PRIVATE_REPO" "handle-public-event.yml"
 
 PRIVATE1_NUM=$(find_private_issue "$ISSUE1_NUM")
 if [[ -z "$PRIVATE1_NUM" ]]; then
@@ -174,8 +179,8 @@ Segfault at 0x7fff5fbff8e0
 
 This might be related to the mmap allocation."
 
-    wait_for_run "$PUBLIC_REPO"
-    wait_for_run "$PRIVATE_REPO"
+    wait_for_run "$PUBLIC_REPO" "public-dispatch.yml"
+    wait_for_run "$PRIVATE_REPO" "handle-public-event.yml"
     echo "  ✓ Comment mirrored"
     check "Comment mirrored to private" \
         check_comments_contain "$PRIVATE_REPO" "$PRIVATE1_NUM" "mmap"
@@ -202,8 +207,8 @@ This might be related to the mmap allocation."
 
 *(Edited: added version and OS details)*"
 
-    wait_for_run "$PUBLIC_REPO"
-    wait_for_run "$PRIVATE_REPO"
+    wait_for_run "$PUBLIC_REPO" "public-dispatch.yml"
+    wait_for_run "$PRIVATE_REPO" "handle-public-event.yml"
     echo "  ✓ Edit mirrored"
     check "Title updated on private" \
         check_title_contains "$PRIVATE_REPO" "$PRIVATE1_NUM" "files larger than 2GB"
@@ -212,8 +217,8 @@ This might be related to the mmap allocation."
     announce "$PRIVATE1_NUM" "Adding a 'bug' label on the public side — Lyrebird will mirror it here."
     gh issue edit "$ISSUE1_NUM" --repo "$PUBLIC_REPO" --add-label "bug"
 
-    wait_for_run "$PUBLIC_REPO"
-    wait_for_run "$PRIVATE_REPO"
+    wait_for_run "$PUBLIC_REPO" "public-dispatch.yml"
+    wait_for_run "$PRIVATE_REPO" "handle-public-event.yml"
     echo "  ✓ Label mirrored"
     check "Bug label on private issue" \
         check_has_label "$PRIVATE_REPO" "$PRIVATE1_NUM" "bug"
@@ -222,8 +227,8 @@ This might be related to the mmap allocation."
     announce "$PRIVATE1_NUM" "Setting the issue type to 'Bug' on the public side — Lyrebird will mirror it here."
     gh api --method PATCH "repos/$PUBLIC_REPO/issues/$ISSUE1_NUM" -f type=Bug >/dev/null 2>&1 || echo "  ⚠ Could not set issue type (may not be enabled on this repo)"
 
-    wait_for_run "$PUBLIC_REPO"
-    wait_for_run "$PRIVATE_REPO"
+    wait_for_run "$PUBLIC_REPO" "public-dispatch.yml"
+    wait_for_run "$PRIVATE_REPO" "handle-public-event.yml"
     echo "  ✓ Type mirrored"
 fi
 
@@ -253,8 +258,8 @@ ISSUE2_NUM=$(echo "$ISSUE2_URL" | grep -oP '\d+$')
 echo "  Created public #$ISSUE2_NUM: Misleading error message"
 echo "  $ISSUE2_URL"
 
-wait_for_run "$PUBLIC_REPO"
-wait_for_run "$PRIVATE_REPO"
+wait_for_run "$PUBLIC_REPO" "public-dispatch.yml"
+wait_for_run "$PRIVATE_REPO" "handle-public-event.yml"
 
 PRIVATE2_NUM=$(find_private_issue "$ISSUE2_NUM")
 if [[ -z "$PRIVATE2_NUM" ]]; then
@@ -279,8 +284,8 @@ database:
 Let me know if you need anything else." \
         2>&1)
 
-    wait_for_run "$PUBLIC_REPO"
-    wait_for_run "$PRIVATE_REPO"
+    wait_for_run "$PUBLIC_REPO" "public-dispatch.yml"
+    wait_for_run "$PRIVATE_REPO" "handle-public-event.yml"
     echo "  ✓ Comment mirrored"
 
     # Edit comment to redact password
@@ -302,8 +307,8 @@ Let me know if you need anything else.
 *(Edited: redacted password)*" \
         >/dev/null 2>&1
 
-    wait_for_run "$PUBLIC_REPO"
-    wait_for_run "$PRIVATE_REPO"
+    wait_for_run "$PUBLIC_REPO" "public-dispatch.yml"
+    wait_for_run "$PRIVATE_REPO" "handle-public-event.yml"
     echo "  ✓ Comment edit mirrored"
     check "Redacted password in mirrored comment" \
         check_comments_contain "$PRIVATE_REPO" "$PRIVATE2_NUM" "redacted password"
@@ -312,8 +317,8 @@ Let me know if you need anything else.
     announce "$PRIVATE2_NUM" "The user decided to delete the comment entirely. Lyrebird will replace the mirrored copy with a tombstone to preserve context."
     gh api -X DELETE "repos/$PUBLIC_REPO/issues/comments/$COMMENT2_ID" --silent 2>/dev/null || true
 
-    wait_for_run "$PUBLIC_REPO"
-    wait_for_run "$PRIVATE_REPO"
+    wait_for_run "$PUBLIC_REPO" "public-dispatch.yml"
+    wait_for_run "$PRIVATE_REPO" "handle-public-event.yml"
     echo "  ✓ Comment replaced with tombstone"
     check "Tombstone comment on private" \
         check_comments_contain "$PRIVATE_REPO" "$PRIVATE2_NUM" "deleted"
@@ -342,8 +347,8 @@ ISSUE3_NUM=$(echo "$ISSUE3_URL" | grep -oP '\d+$')
 echo "  Created public #$ISSUE3_NUM: User question"
 echo "  $ISSUE3_URL"
 
-wait_for_run "$PUBLIC_REPO"
-wait_for_run "$PRIVATE_REPO"
+wait_for_run "$PUBLIC_REPO" "public-dispatch.yml"
+wait_for_run "$PRIVATE_REPO" "handle-public-event.yml"
 
 PRIVATE3_NUM=$(find_private_issue "$ISSUE3_NUM")
 if [[ -z "$PRIVATE3_NUM" ]]; then
@@ -365,7 +370,7 @@ processing:
 
 The docs are being updated — sorry for the confusion.'
 
-    wait_for_run "$PRIVATE_REPO"
+    wait_for_run "$PRIVATE_REPO" "handle-private-comment.yml"
     echo "  ✓ Anonymous reply posted on public issue"
     check "Anonymous reply visible on public issue" \
         check_comments_contain "$PUBLIC_REPO" "$ISSUE3_NUM" "parallel processing"
@@ -376,7 +381,7 @@ The docs are being updated — sorry for the confusion.'
         --repo "$PRIVATE_REPO" \
         --body "/anon Note: if you're on version < 3.0, you'll need to upgrade first. The parallel API was rewritten in 3.0."
 
-    wait_for_run "$PRIVATE_REPO"
+    wait_for_run "$PRIVATE_REPO" "handle-private-comment.yml"
     echo "  ✓ Anonymous follow-up posted on public issue"
 fi
 
@@ -399,8 +404,8 @@ ISSUE4_NUM=$(echo "$ISSUE4_URL" | grep -oP '\d+$')
 echo "  Created public #$ISSUE4_NUM: Typo report"
 echo "  $ISSUE4_URL"
 
-wait_for_run "$PUBLIC_REPO"
-wait_for_run "$PRIVATE_REPO"
+wait_for_run "$PUBLIC_REPO" "public-dispatch.yml"
+wait_for_run "$PRIVATE_REPO" "handle-public-event.yml"
 
 PRIVATE4_NUM=$(find_private_issue "$ISSUE4_NUM")
 if [[ -z "$PRIVATE4_NUM" ]]; then
@@ -412,8 +417,8 @@ else
     announce "$PRIVATE4_NUM" "The reporter is closing the public issue (they found the typo was already fixed). Lyrebird will close this private issue too."
     gh issue close "$ISSUE4_NUM" --repo "$PUBLIC_REPO"
 
-    wait_for_run "$PUBLIC_REPO"
-    wait_for_run "$PRIVATE_REPO"
+    wait_for_run "$PUBLIC_REPO" "public-dispatch.yml"
+    wait_for_run "$PRIVATE_REPO" "handle-public-event.yml"
     echo "  ✓ Private issue closed"
     check "Private issue is closed" \
         check_state "$PRIVATE_REPO" "$PRIVATE4_NUM" "CLOSED"
@@ -422,8 +427,8 @@ else
     announce "$PRIVATE4_NUM" "The reporter reopened — turns out the typo is on a different page. Lyrebird will reopen this private issue too."
     gh issue reopen "$ISSUE4_NUM" --repo "$PUBLIC_REPO"
 
-    wait_for_run "$PUBLIC_REPO"
-    wait_for_run "$PRIVATE_REPO"
+    wait_for_run "$PUBLIC_REPO" "public-dispatch.yml"
+    wait_for_run "$PRIVATE_REPO" "handle-public-event.yml"
     echo "  ✓ Both issues reopened"
     check "Private issue is open" \
         check_state "$PRIVATE_REPO" "$PRIVATE4_NUM" "OPEN"
@@ -452,8 +457,8 @@ ISSUE5_NUM=$(echo "$ISSUE5_URL" | grep -oP '\d+$')
 echo "  Created public #$ISSUE5_NUM: Feature request"
 echo "  $ISSUE5_URL"
 
-wait_for_run "$PUBLIC_REPO"
-wait_for_run "$PRIVATE_REPO"
+wait_for_run "$PUBLIC_REPO" "public-dispatch.yml"
+wait_for_run "$PRIVATE_REPO" "handle-public-event.yml"
 
 PRIVATE5_NUM=$(find_private_issue "$ISSUE5_NUM")
 if [[ -z "$PRIVATE5_NUM" ]]; then
@@ -465,7 +470,7 @@ else
     announce "$PRIVATE5_NUM" "A team member is closing this private issue *without* a resolution label. Lyrebird will close the public issue immediately and, after a 5-minute grace period, add a \`resolution:none\` label with a nudge comment."
     gh issue close "$PRIVATE5_NUM" --repo "$PRIVATE_REPO"
 
-    wait_for_run "$PRIVATE_REPO"
+    wait_for_run "$PRIVATE_REPO" "handle-private-issue.yml"
     echo "  ✓ Public issue closed; delayed check will add 'resolution:none' if no label is added"
     check "Public issue is closed" \
         check_state "$PUBLIC_REPO" "$ISSUE5_NUM" "CLOSED"
@@ -474,19 +479,19 @@ else
     announce "$PRIVATE5_NUM" "Reopening to fix the closure. Will add a resolution label and close again properly."
     gh issue reopen "$PRIVATE5_NUM" --repo "$PRIVATE_REPO"
 
-    wait_for_run "$PRIVATE_REPO"
+    wait_for_run "$PRIVATE_REPO" "handle-private-issue.yml"
 
     # Post a note via /anon, then add resolution label and close
     gh issue comment "$PRIVATE5_NUM" \
         --repo "$PRIVATE_REPO" \
         --body "/anon Thanks for the suggestion! Dark mode isn't on our roadmap right now, but we'll keep this in mind for future releases."
 
-    wait_for_run "$PRIVATE_REPO"
+    wait_for_run "$PRIVATE_REPO" "handle-private-comment.yml"
 
     gh issue edit "$PRIVATE5_NUM" --repo "$PRIVATE_REPO" --add-label "resolution:not-planned"
     gh issue close "$PRIVATE5_NUM" --repo "$PRIVATE_REPO"
 
-    wait_for_run "$PRIVATE_REPO"
+    wait_for_run "$PRIVATE_REPO" "handle-private-issue.yml"
     echo "  ✓ Both issues closed with 'not-planned' resolution"
     check "Public issue is closed" \
         check_state "$PUBLIC_REPO" "$ISSUE5_NUM" "CLOSED"
