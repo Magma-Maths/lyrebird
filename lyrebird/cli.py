@@ -67,3 +67,39 @@ def main() -> None:
     )
     route(client, config, event_name, action, payload, source=source)
     logger.info("Done")
+
+
+def sync_main() -> None:
+    """Entry point for the sync subcommand."""
+    logging.basicConfig(
+        level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    )
+
+    config = load_config()
+
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        logger.error("GITHUB_TOKEN is required")
+        sys.exit(1)
+    client = Github(auth=Auth.Token(token))
+
+    # Parse --since N from argv
+    since_hours: int | None = 25
+    args = sys.argv[2:]  # skip "lyrebird" and "sync"
+    if "--since" in args:
+        idx = args.index("--since")
+        if idx + 1 < len(args):
+            since_hours = int(args[idx + 1])
+    elif "--all" in args:
+        since_hours = None
+
+    from lyrebird.sync import sync
+
+    stats = sync(client, config, since_hours=since_hours)
+    print()
+    print("Sync complete.")
+    print(stats.summary())
+
+    if stats.errors:
+        sys.exit(1)

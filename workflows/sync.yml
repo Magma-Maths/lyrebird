@@ -1,0 +1,49 @@
+# Install in the PRIVATE repo at .github/workflows/sync.yml
+#
+# Daily reconciliation of public issues with their private mirrors.
+# Catches any events missed due to runner failures or transient errors.
+
+name: Sync public issues
+
+on:
+  schedule:
+    - cron: '0 6 * * *'    # daily at 06:00 UTC
+  workflow_dispatch:         # manual trigger
+
+env:
+  PUBLIC_REPO: ${{ vars.PUBLIC_REPO }}
+  PRIVATE_REPO: ${{ vars.PRIVATE_REPO }}
+  BOT_LOGIN: ${{ vars.BOT_LOGIN }}
+
+jobs:
+  sync:
+    if: github.repository == vars.PRIVATE_REPO
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout lyrebird
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.LYREBIRD_REPO }}
+          path: lyrebird
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install lyrebird
+        run: pip install ./lyrebird
+
+      - name: Generate App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.LYREBIRD_APP_ID }}
+          private-key: ${{ secrets.LYREBIRD_APP_PRIVATE_KEY }}
+          repositories: ${{ vars.PUBLIC_REPO_NAME }},${{ vars.PRIVATE_REPO_NAME }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Run sync
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: python -m lyrebird sync
