@@ -37,6 +37,7 @@ step() {
 wait_for_run() {
     local repo="$1"
     local workflow="${2:-}"
+    local wait_job="${3:-}"
     local wf_args=()
     if [[ -n "$workflow" ]]; then
         wf_args=(--workflow "$workflow")
@@ -44,13 +45,41 @@ wait_for_run() {
     echo "  Waiting for $workflow on $repo..."
     sleep 5
     for _ in $(seq 1 24); do
-        STATUS=$(gh run list --repo "$repo" "${wf_args[@]}" --limit 1 --json status --jq '.[0].status' 2>/dev/null || echo "unknown")
-        if [[ "$STATUS" == "completed" ]]; then
-            CONCLUSION=$(gh run list --repo "$repo" "${wf_args[@]}" --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "unknown")
-            if [[ "$CONCLUSION" == "success" ]]; then
+        # Find the most recent non-skipped run
+        local run_id status conclusion
+        read -r run_id status conclusion < <(
+            gh run list --repo "$repo" "${wf_args[@]}" --limit 5 \
+                --json databaseId,status,conclusion \
+                --jq '[.[] | select(.status != "completed" or .conclusion != "skipped")][0]
+                      | [.databaseId, .status, .conclusion] | @tsv' 2>/dev/null
+        ) || true
+
+        if [[ -z "$run_id" || "$run_id" == "null" ]]; then
+            sleep 5
+            continue
+        fi
+
+        # If waiting for a specific job and run is still going, check job status
+        if [[ -n "$wait_job" && "$status" != "completed" ]]; then
+            local job_conclusion
+            job_conclusion=$(gh api "repos/$repo/actions/runs/$run_id/jobs" \
+                --jq ".jobs[] | select(.name == \"$wait_job\") | .conclusion // empty" 2>/dev/null || echo "")
+            if [[ "$job_conclusion" == "success" ]]; then
+                echo "  ✓ Done"
+                return
+            elif [[ -n "$job_conclusion" ]]; then
+                echo "  ✗ Job '$wait_job' failed: $job_conclusion"
+                return
+            fi
+            sleep 5
+            continue
+        fi
+
+        if [[ "$status" == "completed" ]]; then
+            if [[ "$conclusion" == "success" ]]; then
                 echo "  ✓ Done"
             else
-                echo "  ✗ Workflow failed: $CONCLUSION"
+                echo "  ✗ Workflow failed: $conclusion"
                 echo "    gh run list --repo $repo ${wf_args[*]} --limit 1"
             fi
             return
@@ -470,7 +499,7 @@ else
     announce "$PRIVATE5_NUM" "A team member is closing this private issue *without* a resolution label. Lyrebird will close the public issue immediately and, after a 5-minute grace period, add a \`resolution:none\` label with a nudge comment."
     gh issue close "$PRIVATE5_NUM" --repo "$PRIVATE_REPO"
 
-    wait_for_run "$PRIVATE_REPO" "handle-private-issue.yml"
+    wait_for_run "$PRIVATE_REPO" "handle-private-issue.yml" "handle"
     echo "  ✓ Public issue closed; delayed check will add 'resolution:none' if no label is added"
     check "Public issue is closed" \
         check_state "$PUBLIC_REPO" "$ISSUE5_NUM" "CLOSED"
@@ -479,7 +508,7 @@ else
     announce "$PRIVATE5_NUM" "Reopening to fix the closure. Will add a resolution label and close again properly."
     gh issue reopen "$PRIVATE5_NUM" --repo "$PRIVATE_REPO"
 
-    wait_for_run "$PRIVATE_REPO" "handle-private-issue.yml"
+    wait_for_run "$PRIVATE_REPO" "handle-private-issue.yml" "handle"
 
     # Post a note via /anon, then add resolution label and close
     gh issue comment "$PRIVATE5_NUM" \
@@ -491,7 +520,7 @@ else
     gh issue edit "$PRIVATE5_NUM" --repo "$PRIVATE_REPO" --add-label "resolution:not-planned"
     gh issue close "$PRIVATE5_NUM" --repo "$PRIVATE_REPO"
 
-    wait_for_run "$PRIVATE_REPO" "handle-private-issue.yml"
+    wait_for_run "$PRIVATE_REPO" "handle-private-issue.yml" "handle"
     echo "  ✓ Both issues closed with 'not-planned' resolution"
     check "Public issue is closed" \
         check_state "$PUBLIC_REPO" "$ISSUE5_NUM" "CLOSED"
