@@ -8,10 +8,6 @@ on:
   issues:
     types: [closed, reopened, labeled, unlabeled, typed, untyped]
 
-concurrency:
-  group: private-issue-${{ github.event.issue.node_id }}
-  cancel-in-progress: false
-
 # Shared env vars — available to all jobs/steps.
 env:
   PUBLIC_REPO: ${{ vars.PUBLIC_REPO }}
@@ -33,6 +29,9 @@ env:
 jobs:
   handle:
     if: github.repository == vars.PRIVATE_REPO
+    concurrency:
+      group: private-issue-${{ github.event.issue.node_id }}
+      cancel-in-progress: false
     runs-on: ubuntu-slim
     steps:
       - name: Checkout lyrebird
