@@ -155,6 +155,17 @@ deploy_workflows "$PRIVATE_REPO" private-clone \
     handle-private-comment.yml \
     sync.yml
 
+# ── Create resolution labels on private repo ─────────────────────────────────
+
+echo
+echo "==> Creating resolution labels on $PRIVATE_REPO..."
+
+gh label create "resolution:completed"        --repo "$PRIVATE_REPO" --color "0e8a16" --description "Resolved: completed"           --force 2>/dev/null && echo "  resolution:completed"        || true
+gh label create "resolution:not-planned"      --repo "$PRIVATE_REPO" --color "e4e669" --description "Resolved: not planned"         --force 2>/dev/null && echo "  resolution:not-planned"      || true
+gh label create "resolution:cannot-reproduce" --repo "$PRIVATE_REPO" --color "e4e669" --description "Resolved: cannot reproduce"    --force 2>/dev/null && echo "  resolution:cannot-reproduce" || true
+gh label create "resolution:custom"           --repo "$PRIVATE_REPO" --color "c5def5" --description "Custom resolution via /anon"   --force 2>/dev/null && echo "  resolution:custom"           || true
+gh label create "resolution:none"             --repo "$PRIVATE_REPO" --color "fbca04" --description "Close requires a resolution label" --force 2>/dev/null && echo "  resolution:none"             || true
+
 # ── Done ─────────────────────────────────────────────────────────────────────
 
 echo
