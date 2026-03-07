@@ -9,7 +9,7 @@ on:
     types: [created]
 
 concurrency:
-  group: private-issue-${{ github.event.issue.node_id }}
+  group: private-comment-${{ github.event.issue.node_id }}
   cancel-in-progress: false
 
 env:
