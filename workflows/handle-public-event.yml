@@ -16,13 +16,17 @@ on:
         description: 'The original event action (e.g., opened, created)'
         required: true
         type: string
+      issue_node_id:
+        description: 'The node ID of the issue (for concurrency grouping)'
+        required: true
+        type: string
       event:
         description: 'The full event payload from the public repo'
         required: true
         type: string
 
 concurrency:
-  group: public-event
+  group: public-event-${{ inputs.issue_node_id }}
   cancel-in-progress: false
 
 env:
