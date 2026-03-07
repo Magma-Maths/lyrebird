@@ -142,6 +142,7 @@ mkdir -p .github/workflows
 cp "$LYREBIRD_DIR/workflows/handle-public-event.yml"     .github/workflows/
 cp "$LYREBIRD_DIR/workflows/handle-private-issue.yml"    .github/workflows/
 cp "$LYREBIRD_DIR/workflows/handle-private-comment.yml"  .github/workflows/
+cp "$LYREBIRD_DIR/workflows/sync.yml"                    .github/workflows/
 git add .
 git commit -q -m "ci: add lyrebird handler workflows"
 git push -q -u origin main

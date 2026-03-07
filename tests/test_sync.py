@@ -586,6 +586,60 @@ class TestUpdatesEditedComments:
         assert "New content" in priv_comment.edit.call_args.kwargs["body"]
 
 
+class TestTombstonesDeletedComments:
+    def test_tombstones_orphaned_mirror(self, config, mock_client):
+        """When a public comment is deleted, sync tombstones the private mirror."""
+        priv_comment = make_mock_comment(
+            body=(
+                "From @someone at https://example.com/500:\n\n"
+                "Original content\n\n"
+                "<!-- public_comment_id: 500 -->"
+            )
+        )
+        priv_issue = _make_priv_issue()
+        priv_issue.get_comments.return_value = [priv_comment]
+
+        # Public has no comments (the one with id 500 was deleted)
+        mapping_comment = make_mock_comment(body=MAPPING_BODY)
+        pub_issue = _make_pub_issue()
+        pub_issue.get_comments.return_value = [mapping_comment]
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
+        pub_repo.get_issue.return_value = pub_issue
+        priv_repo.get_issue.return_value = priv_issue
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        assert stats.comments_tombstoned == 1
+        priv_comment.edit.assert_called_once()
+        assert "deleted on public" in priv_comment.edit.call_args.kwargs["body"]
+
+    def test_skips_already_tombstoned_comment(self, config, mock_client):
+        """Don't re-tombstone a comment that's already tombstoned."""
+        priv_comment = make_mock_comment(
+            body=(
+                "From @someone at https://example.com/500:\n\n"
+                "*(deleted on public at 2026-01-01T00:00:00)*\n\n"
+                "<!-- public_comment_id: 500 -->"
+            )
+        )
+        priv_issue = _make_priv_issue()
+        priv_issue.get_comments.return_value = [priv_comment]
+
+        mapping_comment = make_mock_comment(body=MAPPING_BODY)
+        pub_issue = _make_pub_issue()
+        pub_issue.get_comments.return_value = [mapping_comment]
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
+        pub_repo.get_issue.return_value = pub_issue
+        priv_repo.get_issue.return_value = priv_issue
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        assert stats.comments_tombstoned == 0
+        priv_comment.edit.assert_not_called()
+
+
 # ── Labels ───────────────────────────────────────────────────────────────────
 
 

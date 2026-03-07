@@ -7,22 +7,33 @@
 #
 # Usage:
 #   ./scripts/demo.sh [public-repo] [private-repo]
-#   ./scripts/demo.sh  # uses defaults from scripts/.env
+#   ./scripts/demo.sh --quick       # minimal setup for sync testing
+#   ./scripts/demo.sh               # uses defaults from scripts/.env
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-if [[ $# -ge 2 ]]; then
-    PUBLIC_REPO="$1"
-    PRIVATE_REPO="$2"
+QUICK=false
+args=()
+for arg in "$@"; do
+    if [[ "$arg" == "--quick" ]]; then
+        QUICK=true
+    else
+        args+=("$arg")
+    fi
+done
+
+if [[ ${#args[@]} -ge 2 ]]; then
+    PUBLIC_REPO="${args[0]}"
+    PRIVATE_REPO="${args[1]}"
 elif [[ -f "$SCRIPT_DIR/.env" ]]; then
     # shellcheck source=/dev/null
     source "$SCRIPT_DIR/.env"
     PUBLIC_REPO="$ORG/$PUBLIC_REPO_NAME"
     PRIVATE_REPO="$ORG/$PRIVATE_REPO_NAME"
 else
-    echo "Usage: $0 <public-repo> <private-repo>"
+    echo "Usage: $0 [--quick] <public-repo> <private-repo>"
     echo "   or: create scripts/.env (see scripts/.env.example)"
     exit 1
 fi
@@ -149,13 +160,52 @@ echo "Lyrebird Demo Generator"
 echo "======================="
 echo "  Public repo:  $PUBLIC_REPO"
 echo "  Private repo: $PRIVATE_REPO"
+
+# Ensure "bug" label exists
+gh label create "bug" --repo "$PUBLIC_REPO" --color "d73a4a" --force 2>/dev/null || true
+
+# ── Quick mode: create 3 bare issues for sync testing ────────────────────
+
+if [[ "$QUICK" == true ]]; then
+    echo "  Mode: quick (3 bare issues for sync testing)"
+    echo
+    ISSUES=()
+    PRIVATES=()
+    for i in 1 2 3; do
+        url=$(gh issue create \
+            --repo "$PUBLIC_REPO" \
+            --title "Quick setup issue $i" \
+            --body "Created by demo --quick for sync testing." \
+            2>&1)
+        num=$(echo "$url" | grep -oE '[0-9]+$')
+        ISSUES+=("$num")
+        echo "  Created public #$num"
+    done
+
+    # Wait for all three to mirror
+    for num in "${ISSUES[@]}"; do
+        wait_for_run "$PUBLIC_REPO" "public-dispatch.yml"
+        wait_for_run "$PRIVATE_REPO" "handle-public-event.yml"
+        priv=$(find_private_issue "$num")
+        PRIVATES+=("${priv:-?}")
+        echo "  public #$num → private #${priv:-not found}"
+    done
+
+    echo
+    echo "  Quick setup complete. ${#ISSUES[@]} mirrored issue pairs created."
+    echo
+    echo "  Clean up:"
+    echo "    gh issue close ${ISSUES[*]} --repo $PUBLIC_REPO"
+    echo "    gh issue close ${PRIVATES[*]} --repo $PRIVATE_REPO"
+    exit 0
+fi
+
+# ── Full demo ─────────────────────────────────────────────────────────────
+
 echo
 echo "  This will create 5 demo issues to showcase Lyrebird's features."
 echo
 sleep 3
-
-# Ensure "bug" label exists
-gh label create "bug" --repo "$PUBLIC_REPO" --color "d73a4a" --force 2>/dev/null || true
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Issue 1: Bug report lifecycle

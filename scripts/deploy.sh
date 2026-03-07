@@ -152,7 +152,8 @@ deploy_workflows "$PUBLIC_REPO" public-clone \
 deploy_workflows "$PRIVATE_REPO" private-clone \
     handle-public-event.yml \
     handle-private-issue.yml \
-    handle-private-comment.yml
+    handle-private-comment.yml \
+    sync.yml
 
 # ── Done ─────────────────────────────────────────────────────────────────────
 

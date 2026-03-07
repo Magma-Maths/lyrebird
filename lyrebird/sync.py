@@ -20,6 +20,7 @@ from lyrebird.mapping import (
     build_mirrored_comment_body,
     build_private_issue_body,
     build_private_issue_title,
+    build_tombstone_comment_body,
     parse_private_body_markers,
     parse_public_comment_id,
     resolve_mapping,
@@ -40,6 +41,7 @@ class SyncStats:
     bodies_updated: int = 0
     comments_mirrored: int = 0
     comments_updated: int = 0
+    comments_tombstoned: int = 0
     labels_synced: int = 0
     errors: list[str] = field(default_factory=list)
 
@@ -52,6 +54,7 @@ class SyncStats:
             f"Bodies updated: {self.bodies_updated}",
             f"Comments mirrored: {self.comments_mirrored}",
             f"Comments updated: {self.comments_updated}",
+            f"Comments tombstoned: {self.comments_tombstoned}",
             f"Labels synced: {self.labels_synced}",
             f"Errors: {len(self.errors)}",
         ]
@@ -444,7 +447,7 @@ def _ensure_label(repo, label) -> None:
 
 
 def _sync_comments(priv_issue, pub_issue, stats: SyncStats) -> None:
-    """Mirror any public comments that are missing, and update edited ones."""
+    """Mirror missing comments, update edited ones, tombstone deleted ones."""
     # Build map of public comments by ID (excluding mapping comments)
     pub_comments: dict[int, object] = {}
     for pc in pub_issue.get_comments():
@@ -486,3 +489,23 @@ def _sync_comments(priv_issue, pub_issue, stats: SyncStats) -> None:
                     pub_id,
                     priv_issue.number,
                 )
+
+    # Tombstone mirrored comments whose public originals no longer exist
+    for pub_id, priv_comment in mirrored.items():
+        if pub_id in pub_comments:
+            continue
+        if "deleted on public" in (priv_comment.body or ""):
+            continue  # Already tombstoned
+        tombstone = build_tombstone_comment_body(
+            author="unknown",
+            permalink=pub_issue.html_url,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            public_comment_id=pub_id,
+        )
+        priv_comment.edit(body=tombstone)
+        stats.comments_tombstoned += 1
+        logger.info(
+            "Tombstoned orphaned mirror for comment %d on private #%d",
+            pub_id,
+            priv_issue.number,
+        )
