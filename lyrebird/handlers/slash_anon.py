@@ -8,7 +8,7 @@ import re
 from github import Github
 
 from lyrebird.config import Config
-from lyrebird.mapping import parse_private_body_markers
+from lyrebird.mapping import parse_private_body_markers, public_number_from_url
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +44,7 @@ def handle(client: Github, config: Config, payload: dict) -> None:
         return
 
     public_url, _ = markers
-    # Extract public issue number from URL
-    # URL format: https://github.com/ORG/REPO/issues/123
-    parts = public_url.rstrip("/").split("/")
-    public_number = int(parts[-1])
+    public_number = public_number_from_url(public_url)
 
     pub_repo = client.get_repo(config.public_repo)
     pub_issue = pub_repo.get_issue(public_number)

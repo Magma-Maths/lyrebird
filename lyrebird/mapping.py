@@ -106,6 +106,11 @@ def parse_private_body_markers(body: str) -> tuple[str, str] | None:
     return None
 
 
+def public_number_from_url(url: str) -> int:
+    """Extract the issue number from a public issue URL."""
+    return int(url.rstrip("/").split("/")[-1])
+
+
 def update_private_body_public_section(private_body: str, new_public_body: str) -> str:
     """Replace content between BEGIN/END PUBLIC BODY delimiters."""
     begin_idx = private_body.find(BEGIN_PUBLIC_BODY)

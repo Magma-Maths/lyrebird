@@ -84,9 +84,13 @@ def test_reopens_public_issue(config, mock_client):
     handle(mock_client, config, payload)
 
     mock_pub_issue.edit.assert_called_once_with(state="open")
+    # Public gets the "reopened" comment, private gets the audit comment
     mock_pub_issue.create_comment.assert_called_once()
     msg = mock_pub_issue.create_comment.call_args[0][0]
     assert "reopened" in msg
+    mock_priv_issue.create_comment.assert_called_once()
+    audit = mock_priv_issue.create_comment.call_args[0][0]
+    assert "reopened by @engineer" in audit
 
 
 def test_skips_reopen_if_public_already_open(config, mock_client):
