@@ -115,6 +115,10 @@ check_has_label() {
     echo "$actual" | tr ',' '\n' | sed 's/^ //' | grep -q "^${label}$"
 }
 
+check_not_has_label() {
+    ! check_has_label "$@"
+}
+
 check_comments_contain() {
     local repo="$1" num="$2" pattern="$3"
     local count
@@ -242,8 +246,55 @@ if [[ -n "$EXISTING_PRIV" ]]; then
     gh label create "sync-test" --repo "$PUBLIC_REPO" --color "0e8a16" --force 2>/dev/null || true
     gh issue edit "$EXISTING_PUB" --repo "$PUBLIC_REPO" --add-label "sync-test"
     echo "  Added 'sync-test' label"
+
+    # --- Drift 8: Label removal & protection ---
+    echo
+    echo "  [Drift 8] Adding labels to private #$EXISTING_PRIV (extra should be removed, resolution should stay)..."
+    gh label create "stale-label" --repo "$PRIVATE_REPO" --color "cfd3d7" --force 2>/dev/null || true
+    gh label create "resolution:completed" --repo "$PRIVATE_REPO" --color "008672" --force 2>/dev/null || true
+    gh issue edit "$EXISTING_PRIV" --repo "$PRIVATE_REPO" --add-label "stale-label,resolution:completed"
+    echo "  Added 'stale-label' (unprotected) and 'resolution:completed' (protected) to private"
+
+    # --- Drift 9: Comment edit ---
+    echo
+    echo "  [Drift 9] Editing an existing public comment (that already has a mirror)..."
+    # Find a comment on public that has a mirror on private
+    EDIT_MIRROR_ID=""
+    PUB_COMMENTS=$(gh api "repos/$PUBLIC_REPO/issues/$EXISTING_PUB/comments" --jq '.[].id' 2>/dev/null)
+    for cid in $PUB_COMMENTS; do
+        if gh api "repos/$PRIVATE_REPO/issues/$EXISTING_PRIV/comments" --jq '.[].body' 2>/dev/null | grep -q "public_comment_id: $cid"; then
+            EDIT_MIRROR_ID="$cid"
+            break
+        fi
+    done
+
+    if [[ -n "$EDIT_MIRROR_ID" ]]; then
+        gh api -X PATCH "repos/$PUBLIC_REPO/issues/comments/$EDIT_MIRROR_ID" -f body="This comment was EDITED while webhooks were down."
+        echo "  Public comment $EDIT_MIRROR_ID edited"
+    else
+        echo "  ⚠ No mirrored comment found to edit — skipping Drift 9"
+    fi
+
+    # --- Drift 10: Comment deletion (Tombstone) ---
+    echo
+    echo "  [Drift 10] Deleting a public comment (that already has a mirror)..."
+    MIRRORED_COMMENT_ID=""
+    for cid in $PUB_COMMENTS; do
+        if [[ "$cid" == "$EDIT_MIRROR_ID" ]]; then continue; fi
+        if gh api "repos/$PRIVATE_REPO/issues/$EXISTING_PRIV/comments" --jq '.[].body' 2>/dev/null | grep -q "public_comment_id: $cid"; then
+            MIRRORED_COMMENT_ID="$cid"
+            break
+        fi
+    done
+
+    if [[ -n "$MIRRORED_COMMENT_ID" ]]; then
+        gh api -X DELETE "repos/$PUBLIC_REPO/issues/comments/$MIRRORED_COMMENT_ID"
+        echo "  Public comment $MIRRORED_COMMENT_ID deleted (mirror should be tombstoned)"
+    else
+        echo "  ⚠ No second mirrored comment found to delete — skipping Drift 10"
+    fi
 else
-    echo "  ⚠ No existing mirrored issue found — skipping drift 2-5"
+    echo "  ⚠ No existing mirrored issue found — skipping drift 2-5, 8-10"
 fi
 
 # --- Drift 6: Public closed but private still open (missed public→private cascade) ---
@@ -395,6 +446,31 @@ if [[ -n "$EXISTING_PRIV" ]]; then
     echo "  [Drift 5] Missing label..."
     check "sync-test label on private" \
         check_has_label "$PRIVATE_REPO" "$EXISTING_PRIV" "sync-test"
+
+    echo
+    echo "  [Drift 8] Label removal & protection..."
+    check "stale-label removed from private" \
+        check_not_has_label "$PRIVATE_REPO" "$EXISTING_PRIV" "stale-label"
+    check "resolution:completed label protected" \
+        check_has_label "$PRIVATE_REPO" "$EXISTING_PRIV" "resolution:completed"
+
+    echo
+    echo "  [Drift 9] Comment edit..."
+    if [[ -n "${EDIT_MIRROR_ID:-}" ]]; then
+        check "Private mirror updated with edit content" \
+            check_comments_contain "$PRIVATE_REPO" "$EXISTING_PRIV" "EDITED while webhooks"
+    else
+        echo "    skipped (no mirrored comment edited)"
+    fi
+
+    echo
+    echo "  [Drift 10] Comment deletion (Tombstone)..."
+    if [[ -n "${MIRRORED_COMMENT_ID:-}" ]]; then
+        check "Private mirror tombstoned" \
+            check_comments_contain "$PRIVATE_REPO" "$EXISTING_PRIV" "deleted on public"
+    else
+        echo "    skipped (no mirrored comment deleted)"
+    fi
 fi
 
 # Check drift 6: public closed → private should be closed too
@@ -429,9 +505,12 @@ if [[ -n "$EXISTING_PUB" && -n "$ORIGINAL_TITLE" ]]; then
     gh issue edit "$EXISTING_PUB" --repo "$PUBLIC_REPO" --body "$ORIGINAL_BODY"
 fi
 
-# Remove test label
+# Remove test labels
 if [[ -n "$EXISTING_PUB" ]]; then
     gh issue edit "$EXISTING_PUB" --repo "$PUBLIC_REPO" --remove-label "sync-test" 2>/dev/null || true
+fi
+if [[ -n "$EXISTING_PRIV" ]]; then
+    gh issue edit "$EXISTING_PRIV" --repo "$PRIVATE_REPO" --remove-label "resolution:completed" 2>/dev/null || true
 fi
 
 # Reopen state-drift issues

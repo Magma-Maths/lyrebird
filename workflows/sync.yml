@@ -9,11 +9,30 @@ on:
   schedule:
     - cron: '0 6 * * *'    # daily at 06:00 UTC
   workflow_dispatch:         # manual trigger
+    inputs:
+      since_hours:
+        description: 'Hours to look back (e.g., "25"). Use "all" for a full historical sync.'
+        required: false
+        type: string
+        default: '25'
+
+concurrency:
+  group: lyrebird-sync
+  cancel-in-progress: true
 
 env:
   PUBLIC_REPO: ${{ vars.PUBLIC_REPO }}
   PRIVATE_REPO: ${{ vars.PRIVATE_REPO }}
   BOT_LOGIN: ${{ vars.BOT_LOGIN }}
+  # Resolution labels: maps resolution key → private label, public
+  # close note, and GitHub state_reason.  Customise as needed.
+  RESOLUTION_LABELS: >-
+    {
+      "completed":        {"label": "resolution:completed",        "note": "This has been fixed and will be available in the next update. Thanks for the report. If you still see this after updating, please comment here with details.", "state_reason": "completed"},
+      "not-planned":      {"label": "resolution:not-planned",      "note": "Closing as not planned at this time. Thanks for taking the time to report it.",                               "state_reason": "not_planned"},
+      "cannot-reproduce": {"label": "resolution:cannot-reproduce", "note": "We could not reproduce this with the information available. If you can share steps/logs, we can reopen.",      "state_reason": "not_planned"},
+      "custom":           {"label": "resolution:custom",           "note": "",                                                                                                            "state_reason": null}
+    }
 
 jobs:
   sync:
@@ -46,4 +65,13 @@ jobs:
       - name: Run sync
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: python -m lyrebird sync
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ inputs.since_hours }}" = "all" ]; then
+              python -m lyrebird sync --all
+            else
+              python -m lyrebird sync --since "${{ inputs.since_hours }}"
+            fi
+          else
+            python -m lyrebird sync
+          fi
