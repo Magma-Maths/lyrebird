@@ -362,6 +362,47 @@ class TestSyncsStatePrivateToPublic:
         ]
         assert not state_edits
 
+    def test_posts_missing_resolution_note_when_both_closed(self, config, mock_client):
+        """Both closed + resolution label on private but no note on public → posts note."""
+        priv_issue = _make_priv_issue(
+            state="closed", labels=["resolution:completed"]
+        )
+        mapping_comment = make_mock_comment(body=MAPPING_BODY)
+
+        pub_issue = _make_pub_issue(state="closed")
+        pub_issue.get_comments.return_value = [mapping_comment]
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
+        pub_repo.get_issue.return_value = pub_issue
+        priv_repo.get_issue.return_value = priv_issue
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        pub_issue.create_comment.assert_called_once()
+        note = pub_issue.create_comment.call_args[0][0]
+        assert "fixed" in note.lower()
+
+    def test_skips_resolution_note_when_already_posted(self, config, mock_client):
+        """Both closed + resolution label + note already on public → no duplicate."""
+        priv_issue = _make_priv_issue(
+            state="closed", labels=["resolution:completed"]
+        )
+        mapping_comment = make_mock_comment(body=MAPPING_BODY)
+        existing_note = make_mock_comment(
+            body="This has been fixed and will be available in the next update. Thanks for the report.",
+        )
+
+        pub_issue = _make_pub_issue(state="closed")
+        pub_issue.get_comments.return_value = [mapping_comment, existing_note]
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
+        pub_repo.get_issue.return_value = pub_issue
+        priv_repo.get_issue.return_value = priv_issue
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        pub_issue.create_comment.assert_not_called()
+
     def test_no_events_means_public_authoritative(self, config, mock_client):
         """When private issue has no state events, public state wins."""
         priv_issue = _make_priv_issue(state="open")

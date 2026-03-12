@@ -224,6 +224,8 @@ def _sync_state(
 ) -> None:
     """Reconcile open/closed state between public and private issues."""
     if pub_issue.state == priv_issue.state:
+        if pub_issue.state == "closed":
+            _ensure_resolution_note(config, pub_issue, priv_issue, stats)
         return
 
     if _last_state_change_is_bot(config, priv_issue):
@@ -278,6 +280,28 @@ def _get_resolution_info(
     return None, None
 
 
+def _ensure_resolution_note(
+    config: Config, pub_issue, priv_issue, stats: SyncStats
+) -> None:
+    """Post the resolution note if both issues are closed but the note is missing."""
+    note, _ = _get_resolution_info(config, priv_issue)
+    if not note:
+        return
+
+    # Check whether the note was already posted
+    for comment in pub_issue.get_comments():
+        if (comment.body or "").strip() == note.strip():
+            return
+
+    pub_issue.create_comment(note)
+    stats.state_updated += 1
+    logger.info(
+        "Posted missing resolution note on public %s from private #%d",
+        pub_issue.html_url,
+        priv_issue.number,
+    )
+
+
 def _check_private_state(
     config: Config, pub_repo: Repository, priv_issue, stats: SyncStats
 ) -> None:
@@ -291,6 +315,8 @@ def _check_private_state(
     pub_issue = pub_repo.get_issue(pub_number)
 
     if pub_issue.state == priv_issue.state:
+        if pub_issue.state == "closed":
+            _ensure_resolution_note(config, pub_issue, priv_issue, stats)
         return
 
     # Only push if a human changed the private state
