@@ -32,6 +32,17 @@ def handle(client: Github, config: Config, payload: dict) -> None:
 
     pub_repo = client.get_repo(config.public_repo)
 
+    # Special: if a resolution label is added while private is closed,
+    # check if we should close the public issue and post the note.
+    # This must run BEFORE the public-label-existence gate below, because
+    # resolution labels (e.g. resolution:completed) typically don't exist
+    # on the public repo.
+    if action == "labeled" and label_name in config.all_resolution_label_names():
+        priv_repo = client.get_repo(config.private_repo)
+        priv_issue = priv_repo.get_issue(issue["number"])
+        if priv_issue.state == "closed":
+            _maybe_close_public_on_label(client, config, priv_issue, pub_repo, public_number)
+
     # Only mirror if the label exists on the public repo
     try:
         pub_repo.get_label(label_name)
@@ -54,14 +65,6 @@ def handle(client: Github, config: Config, payload: dict) -> None:
             )
         except Exception:
             pass
-
-    # Special: if a resolution label is added while private is closed,
-    # check if we should close the public issue
-    if action == "labeled" and label_name in config.all_resolution_label_names():
-        priv_repo = client.get_repo(config.private_repo)
-        priv_issue = priv_repo.get_issue(issue["number"])
-        if priv_issue.state == "closed":
-            _maybe_close_public_on_label(client, config, priv_issue, pub_repo, public_number)
 
 
 def _maybe_close_public_on_label(

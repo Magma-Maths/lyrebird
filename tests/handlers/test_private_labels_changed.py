@@ -174,3 +174,48 @@ def test_resolution_label_on_closed_removes_resolution_none(config, mock_client)
     mock_pub_issue.create_comment.assert_called_once()
     # Should remove resolution:none
     mock_priv_issue.remove_from_labels.assert_called_once_with("resolution:none")
+
+
+def test_resolution_label_not_on_public_still_posts_note(config, mock_client):
+    """When a resolution label is added to a closed private issue but the label
+    does NOT exist on the public repo, the resolution note should still be posted."""
+    payload = {
+        "action": "labeled",
+        "issue": {
+            "number": 10,
+            "body": make_private_issue_body(),
+            "state": "closed",
+        },
+        "label": {"name": "resolution:completed"},
+        "sender": {"login": "engineer", "type": "User"},
+    }
+
+    mock_pub_repo = MagicMock()
+    mock_priv_repo = MagicMock()
+    mock_pub_issue = MagicMock()
+    mock_pub_issue.state = "closed"
+    mock_pub_repo.get_issue.return_value = mock_pub_issue
+    # Label does NOT exist on public repo
+    mock_pub_repo.get_label.side_effect = Exception("not found")
+
+    mock_priv_issue = MagicMock()
+    mock_priv_issue.state = "closed"
+    mock_priv_issue.number = 10
+    lbl = MagicMock()
+    lbl.name = "resolution:completed"
+    mock_priv_issue.get_labels.return_value = [lbl]
+    mock_priv_repo.get_issue.return_value = mock_priv_issue
+
+    def get_repo(name):
+        if name == config.public_repo:
+            return mock_pub_repo
+        return mock_priv_repo
+
+    mock_client.get_repo.side_effect = get_repo
+
+    handle(mock_client, config, payload)
+
+    # Should still post note even though label doesn't exist on public
+    mock_pub_issue.create_comment.assert_called_once()
+    note = mock_pub_issue.create_comment.call_args[0][0]
+    assert "has been fixed" in note
