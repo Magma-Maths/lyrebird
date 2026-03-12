@@ -51,6 +51,47 @@ def test_creates_private_issue_and_mapping_comment(config, mock_client):
     assert "private_issue_number=10" in mapping_text
 
 
+def test_creates_issue_with_labels_even_when_ensure_label_fails(config, mock_client):
+    """When _ensure_label fails (e.g. case mismatch like Documentation vs documentation),
+    labels should still be passed to create_issue."""
+    public_issue = make_public_issue_payload(
+        labels=[{"name": "documentation", "color": "0075ca", "description": ""}],
+    )
+    payload = {
+        "issue": public_issue,
+        "sender": {"login": "reporter", "type": "User"},
+    }
+
+    mock_pub_repo = MagicMock()
+    mock_priv_repo = MagicMock()
+    mock_pub_issue_obj = make_mock_issue(number=42)
+    mock_pub_issue_obj.get_comments.return_value = []
+
+    mock_priv_issue = MagicMock()
+    mock_priv_issue.number = 10
+    mock_priv_repo.create_issue.return_value = mock_priv_issue
+    mock_priv_repo.get_issues.return_value = []
+
+    # _ensure_label will fail: get_label throws, create_label also throws
+    # (simulates case-insensitive conflict: "Documentation" exists, "documentation" requested)
+    mock_priv_repo.get_label.side_effect = Exception("not found")
+    mock_priv_repo.create_label.side_effect = Exception("already exists")
+
+    def get_repo(name):
+        if name == config.public_repo:
+            return mock_pub_repo
+        return mock_priv_repo
+
+    mock_client.get_repo.side_effect = get_repo
+    mock_pub_repo.get_issue.return_value = mock_pub_issue_obj
+
+    handle(mock_client, config, payload)
+
+    # Labels should still be passed to create_issue
+    create_args = mock_priv_repo.create_issue.call_args
+    assert "documentation" in create_args.kwargs["labels"]
+
+
 def test_idempotent_when_mapping_exists(config, mock_client):
     """If mapping already exists, do not create another private issue."""
     public_issue = make_public_issue_payload()
