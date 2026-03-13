@@ -51,10 +51,8 @@ def test_removes_resolution_and_needs_resolution(config, mock_client):
     calls = [c[0][0] for c in mock_priv_issue.remove_from_labels.call_args_list]
     assert "unrelated" not in calls
 
-    # Audit comment
-    mock_priv_issue.create_comment.assert_called_once()
-    msg = mock_priv_issue.create_comment.call_args[0][0]
-    assert "reopened by @engineer" in msg
+    # No audit comment on reopen
+    mock_priv_issue.create_comment.assert_not_called()
 
 
 def test_reopens_public_issue(config, mock_client):
@@ -84,13 +82,9 @@ def test_reopens_public_issue(config, mock_client):
     handle(mock_client, config, payload)
 
     mock_pub_issue.edit.assert_called_once_with(state="open")
-    # Public gets the "reopened" comment, private gets the audit comment
-    mock_pub_issue.create_comment.assert_called_once()
-    msg = mock_pub_issue.create_comment.call_args[0][0]
-    assert "reopened" in msg
-    mock_priv_issue.create_comment.assert_called_once()
-    audit = mock_priv_issue.create_comment.call_args[0][0]
-    assert "reopened by @engineer" in audit
+    # No comments on either side — the reopen action is self-evident
+    mock_pub_issue.create_comment.assert_not_called()
+    mock_priv_issue.create_comment.assert_not_called()
 
 
 def test_skips_reopen_if_public_already_open(config, mock_client):
@@ -194,37 +188,6 @@ def test_multiple_resolution_labels_all_removed(config, mock_client):
         "resolution:cannot-reproduce",
         "resolution:none",
     }
-
-
-def test_missing_sender_uses_unknown(config, mock_client):
-    """Missing sender falls back to 'unknown'."""
-    payload = {
-        "action": "reopened",
-        "issue": {"number": 10, "body": _make_private_body(), "state": "open"},
-        # no "sender" key
-    }
-
-    mock_priv_repo = MagicMock()
-    mock_priv_issue = MagicMock()
-    mock_priv_issue.get_labels.return_value = []
-    mock_priv_repo.get_issue.return_value = mock_priv_issue
-
-    mock_pub_repo = MagicMock()
-    mock_pub_issue = MagicMock()
-    mock_pub_issue.state = "open"
-    mock_pub_repo.get_issue.return_value = mock_pub_issue
-
-    def get_repo(name):
-        if name == config.public_repo:
-            return mock_pub_repo
-        return mock_priv_repo
-
-    mock_client.get_repo.side_effect = get_repo
-
-    handle(mock_client, config, payload)
-
-    msg = mock_priv_issue.create_comment.call_args[0][0]
-    assert "reopened by @unknown" in msg
 
 
 def test_unlinked_issue_no_side_effects(config, mock_client):

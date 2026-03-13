@@ -1,4 +1,4 @@
-"""Handle private issue reopened: clean up resolution, reopen public, and audit."""
+"""Handle private issue reopened: clean up resolution and reopen public."""
 
 from __future__ import annotations
 
@@ -28,10 +28,6 @@ def handle(client: Github, config: Config, payload: dict) -> None:
 
     cleanup_private_resolution_labels(config, priv_issue)
 
-    # Audit comment
-    sender = payload.get("sender", {}).get("login", "unknown")
-    priv_issue.create_comment(f"Private issue reopened by @{sender}.")
-
     # Reopen public issue if it's closed
     public_url, _ = markers
     public_number = public_number_from_url(public_url)
@@ -39,8 +35,5 @@ def handle(client: Github, config: Config, payload: dict) -> None:
     pub_issue = pub_repo.get_issue(public_number)
     if pub_issue.state != "open":
         pub_issue.edit(state="open")
-        pub_issue.create_comment(
-            "This issue has been reopened for further investigation."
-        )
 
     logger.info("Private #%d reopened, cleaned resolution labels", issue["number"])

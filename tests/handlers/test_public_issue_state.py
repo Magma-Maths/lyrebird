@@ -65,6 +65,7 @@ def test_close_by_reporter_notes_reporter(config, mock_client):
 
 
 def test_reopen_posts_audit(config, mock_client):
+    """Reopen posts cross-repo attribution on private (who reopened on public)."""
     public_issue = make_public_issue_payload(user_login="reporter")
     payload = {
         "action": "reopened",
@@ -78,7 +79,8 @@ def test_reopen_posts_audit(config, mock_client):
     handle(mock_client, config, payload)
 
     audit = mock_private.create_comment.call_args[0][0]
-    assert "reopened" in audit
+    assert "reopened by @reporter" in audit
+    assert "original reporter" in audit
 
 
 def test_close_also_closes_private(config, mock_client):
