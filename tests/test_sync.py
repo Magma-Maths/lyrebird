@@ -594,6 +594,31 @@ class TestSkipsMappingComments:
         priv_issue.create_comment.assert_not_called()
 
 
+class TestSkipsBotComments:
+    def test_does_not_mirror_bot_authored_comment(self, config, mock_client):
+        """Comments authored by the bot on the public issue must not be mirrored."""
+        priv_issue = _make_priv_issue()
+        priv_issue.get_comments.return_value = []
+
+        mapping_comment = make_mock_comment(body=MAPPING_BODY)
+        bot_comment = make_mock_comment(
+            comment_id=700,
+            body="This has been fixed and will be available in the next update. Thanks for the report.",
+            user_login="lyrebird[bot]",
+        )
+        pub_issue = _make_pub_issue()
+        pub_issue.get_comments.return_value = [mapping_comment, bot_comment]
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
+        pub_repo.get_issue.return_value = pub_issue
+        priv_repo.get_issue.return_value = priv_issue
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        assert stats.comments_mirrored == 0
+        priv_issue.create_comment.assert_not_called()
+
+
 class TestUpdatesEditedComments:
     def test_updates_mirrored_comment_when_content_differs(self, config, mock_client):
         priv_comment = make_mock_comment(

@@ -211,7 +211,7 @@ def _sync_issue(
     _sync_labels(config, priv_repo, priv_issue, pub_issue, stats)
 
     # Sync comments (find missing or edited mirrored comments)
-    _sync_comments(priv_issue, pub_issue, stats)
+    _sync_comments(config, priv_issue, pub_issue, stats)
 
     return priv_issue.number
 
@@ -472,12 +472,18 @@ def _ensure_label(repo, label) -> None:
 # ── Comments ─────────────────────────────────────────────────────────────────
 
 
-def _sync_comments(priv_issue, pub_issue, stats: SyncStats) -> None:
+def _sync_comments(
+    config: Config, priv_issue, pub_issue, stats: SyncStats
+) -> None:
     """Mirror missing comments, update edited ones, tombstone deleted ones."""
-    # Build map of public comments by ID (excluding mapping comments)
+    from lyrebird.loop_prevention import _is_bot_login
+
+    # Build map of public comments by ID (excluding mapping and bot comments)
     pub_comments: dict[int, object] = {}
     for pc in pub_issue.get_comments():
         if "<!-- mapping:" in (pc.body or ""):
+            continue
+        if _is_bot_login(config, pc.user.login):
             continue
         pub_comments[pc.id] = pc
 

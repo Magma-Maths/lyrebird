@@ -43,3 +43,17 @@ def test_mirrors_comment_to_private(config, mock_client):
     assert "From @commenter" in comment_body
     assert "I can reproduce this" in comment_body
     assert "public_comment_id: 999" in comment_body
+
+
+def test_skips_bot_authored_comment(config, mock_client):
+    """Bot-authored comments must not be mirrored (defense-in-depth)."""
+    payload = make_comment_payload(
+        comment_id=888,
+        body="This has been fixed.",
+        user_login="lyrebird[bot]",
+    )
+
+    handle(mock_client, config, payload)
+
+    # Should return early — no repo lookups at all
+    mock_client.get_repo.assert_not_called()

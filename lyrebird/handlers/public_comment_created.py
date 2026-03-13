@@ -16,6 +16,19 @@ def handle(client: Github, config: Config, payload: dict) -> None:
     public_issue = payload["issue"]
     comment = payload["comment"]
 
+    # Defense-in-depth: never mirror the bot's own comments, even if
+    # is_bot_event() in cli.py failed to catch this event.
+    from lyrebird.loop_prevention import _is_bot_login
+
+    comment_author = comment.get("user", {}).get("login", "")
+    if _is_bot_login(config, comment_author):
+        logger.info(
+            "Skipping bot-authored comment %d on public #%d",
+            comment["id"],
+            public_issue["number"],
+        )
+        return
+
     mapping = resolve_mapping(client, config, public_issue)
     if mapping is None:
         logger.warning(
