@@ -14,6 +14,27 @@ from lyrebird.config import Config
 
 logger = logging.getLogger(__name__)
 
+# ── Helpers ─────────────────────────────────────────────────────────────────
+
+_CODE_FENCE_RE = re.compile(r"^(`{3,}|~{3,})", re.MULTILINE)
+
+
+def _close_unclosed_fences(text: str) -> str:
+    """Close any unclosed Markdown code fences so trailing HTML comments stay hidden."""
+    open_fence: str | None = None
+    for m in _CODE_FENCE_RE.finditer(text):
+        marker = m.group(1)
+        fence_char = marker[0]
+        fence_len = len(marker)
+        if open_fence is None:
+            open_fence = fence_char * fence_len
+        elif fence_char == open_fence[0] and fence_len >= len(open_fence):
+            open_fence = None
+    if open_fence is not None:
+        text = text + "\n" + open_fence
+    return text
+
+
 # ── Marker patterns ──────────────────────────────────────────────────────────
 
 MAPPING_COMMENT_RE = re.compile(
@@ -78,6 +99,7 @@ def build_private_issue_body(config: Config, public_issue: dict) -> str:
     node_id = public_issue["node_id"]
     body = public_issue.get("body") or ""
 
+    body = _close_unclosed_fences(body)
     lines = [
         f"**Public issue**: {url}",
         f"**Author**: @{author}",
@@ -113,6 +135,7 @@ def public_number_from_url(url: str) -> int:
 
 def update_private_body_public_section(private_body: str, new_public_body: str) -> str:
     """Replace content between BEGIN/END PUBLIC BODY delimiters."""
+    new_public_body = _close_unclosed_fences(new_public_body)
     begin_idx = private_body.find(BEGIN_PUBLIC_BODY)
     end_idx = private_body.find(END_PUBLIC_BODY)
     if begin_idx == -1 or end_idx == -1:
@@ -131,6 +154,7 @@ def build_mirrored_comment_body(
     author: str, permalink: str, body: str, public_comment_id: int
 ) -> str:
     """Build a mirrored private comment body."""
+    body = _close_unclosed_fences(body)
     return (
         f"From @{author} at {permalink}:\n\n"
         f"{body}\n\n"

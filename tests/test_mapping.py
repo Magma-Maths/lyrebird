@@ -152,3 +152,90 @@ def test_find_mapping_in_comments_none():
     c1.body = "normal comment"
     assert find_mapping_in_comments([c1]) is None
     assert find_mapping_in_comments([]) is None
+
+
+# ── Unclosed code fence protection ──────────────────────────────────────────
+
+
+def test_mirrored_comment_closes_unclosed_backtick_fence():
+    body = build_mirrored_comment_body(
+        author="alice",
+        permalink="https://example.com/comment",
+        body="text\n```\ncode without closing fence",
+        public_comment_id=789,
+    )
+    # Marker must be outside any code block (parseable as HTML comment)
+    assert parse_public_comment_id(body) == 789
+    # The body should contain a closing fence before the marker
+    marker_pos = body.index("<!-- public_comment_id:")
+    closing_fence_pos = body.rindex("```", 0, marker_pos)
+    # The closing fence should come after the original content
+    assert closing_fence_pos > body.index("code without closing fence")
+
+
+def test_mirrored_comment_closes_unclosed_tilde_fence():
+    body = build_mirrored_comment_body(
+        author="alice",
+        permalink="https://example.com/comment",
+        body="text\n~~~\ncode without closing fence",
+        public_comment_id=789,
+    )
+    assert parse_public_comment_id(body) == 789
+    marker_pos = body.index("<!-- public_comment_id:")
+    closing_fence_pos = body.rindex("~~~", 0, marker_pos)
+    assert closing_fence_pos > body.index("code without closing fence")
+
+
+def test_mirrored_comment_preserves_properly_closed_fence():
+    body = build_mirrored_comment_body(
+        author="alice",
+        permalink="https://example.com/comment",
+        body="text\n```\ncode\n```\nmore text",
+        public_comment_id=789,
+    )
+    assert parse_public_comment_id(body) == 789
+    # Should not add an extra fence — count backtick fences in body
+    assert body.count("\n```\n") == 2 or body.count("\n```") == 2
+
+
+def test_private_issue_body_closes_unclosed_fence(config):
+    payload = make_public_issue_payload(
+        number=42,
+        node_id="I_kwDOTest",
+        body="```\nunclosed code",
+    )
+    body = build_private_issue_body(config, payload)
+    # The END PUBLIC BODY marker should not be inside a code block
+    assert END_PUBLIC_BODY in body
+    assert "<!-- public_issue_node_id: I_kwDOTest -->" in body
+
+
+def test_update_private_body_closes_unclosed_fence():
+    original = (
+        "Header\n"
+        "<!-- BEGIN PUBLIC BODY -->\n"
+        "old content\n"
+        "<!-- END PUBLIC BODY -->\n"
+        "Footer"
+    )
+    updated = update_private_body_public_section(original, "```\nunclosed")
+    assert END_PUBLIC_BODY in updated
+    # The closing fence should appear between the unclosed content and the end marker
+    end_marker_pos = updated.index(END_PUBLIC_BODY)
+    content_start = updated.index("```\nunclosed")
+    closing_fence_pos = updated.rindex("```", content_start + 3, end_marker_pos)
+    assert closing_fence_pos > content_start
+
+
+def test_mirrored_comment_handles_longer_fence():
+    body = build_mirrored_comment_body(
+        author="alice",
+        permalink="https://example.com/comment",
+        body="text\n````\ncode\n```\nstill in fence",
+        public_comment_id=789,
+    )
+    assert parse_public_comment_id(body) == 789
+    # A 4-backtick fence needs a 4+ backtick closer
+    marker_pos = body.index("<!-- public_comment_id:")
+    closing_fence_pos = body.rindex("````", 0, marker_pos)
+    assert closing_fence_pos > body.index("still in fence")
