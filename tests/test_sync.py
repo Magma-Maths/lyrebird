@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from lyrebird.sync import SyncStats, sync
-from tests.conftest import make_mock_comment
+from tests.conftest import make_mock_comment, make_mock_milestone
 
 
 def _make_pub_issue(
@@ -45,6 +45,7 @@ def _make_pub_issue(
         m.description = lbl.get("description", "")
         label_mocks.append(m)
     issue.labels = label_mocks
+    issue.milestone = None
     issue.get_comments = MagicMock(return_value=[])
     return issue
 
@@ -82,21 +83,23 @@ def _make_priv_issue(
         m.name = name
         label_mocks.append(m)
     issue.get_labels.return_value = label_mocks
+    issue.milestone = None
     issue.get_comments = MagicMock(return_value=[])
     issue.get_events = MagicMock(return_value=[])
     return issue
 
 
 def _setup_repos(config, mock_client, pub_issues, priv_issues=None):
-    """Wire up mock repos and client.get_repo routing.
-
-    Returns (pub_repo, priv_repo).
-    """
+    """Wire up mock repos and client.get_repo routing."""
     pub_repo = MagicMock()
     pub_repo.get_issues.return_value = pub_issues
+    pub_repo.get_milestones.return_value = []
+    pub_repo.get_labels.return_value = []
 
     priv_repo = MagicMock()
     priv_repo.get_issues.return_value = priv_issues or []
+    priv_repo.get_milestones.return_value = []
+    priv_repo.get_labels.return_value = []
 
     def get_repo(name):
         if name == config.public_repo:
@@ -860,3 +863,231 @@ class TestSyncStats:
         summary = stats.summary()
         assert "Errors: 1" in summary
         assert "public #1: boom" in summary
+
+
+# ── Milestone metadata reconciliation ────────────────────────────────────────
+
+
+class TestSyncsMilestoneMetadata:
+    def test_creates_missing_milestone_in_private(self, config, mock_client):
+        pub_ms = make_mock_milestone(title="v2.0", description="New release")
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [])
+        pub_repo.get_milestones.return_value = [pub_ms]
+        priv_repo.get_milestones.return_value = []
+        created = make_mock_milestone(title="v2.0")
+        priv_repo.create_milestone.return_value = created
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        priv_repo.create_milestone.assert_called_once()
+        assert stats.milestones_created >= 1
+
+    def test_creates_missing_milestone_in_public(self, config, mock_client):
+        priv_ms = make_mock_milestone(title="internal-v3")
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [])
+        pub_repo.get_milestones.return_value = []
+        priv_repo.get_milestones.return_value = [priv_ms]
+        created = make_mock_milestone(title="internal-v3")
+        pub_repo.create_milestone.return_value = created
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        pub_repo.create_milestone.assert_called_once()
+        assert stats.milestones_created >= 1
+
+    def test_updates_matched_milestone_properties(self, config, mock_client):
+        from datetime import datetime, timezone, timedelta
+
+        now = datetime.now(timezone.utc)
+        pub_ms = make_mock_milestone(title="v1.0", description="old desc")
+        pub_ms.updated_at = now - timedelta(hours=1)
+
+        priv_ms = make_mock_milestone(title="v1.0", description="new desc")
+        priv_ms.updated_at = now
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [])
+        pub_repo.get_milestones.return_value = [pub_ms]
+        priv_repo.get_milestones.return_value = [priv_ms]
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        pub_ms.edit.assert_called_once()
+        assert pub_ms.edit.call_args.kwargs["description"] == "new desc"
+        assert stats.milestones_updated >= 1
+
+    def test_no_update_when_milestones_identical(self, config, mock_client):
+        pub_ms = make_mock_milestone(title="v1.0", description="same")
+        priv_ms = make_mock_milestone(title="v1.0", description="same")
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [])
+        pub_repo.get_milestones.return_value = [pub_ms]
+        priv_repo.get_milestones.return_value = [priv_ms]
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        pub_ms.edit.assert_not_called()
+        priv_ms.edit.assert_not_called()
+
+
+# ── Label property reconciliation ────────────────────────────────────────────
+
+
+class TestSyncsLabelProperties:
+    def test_updates_private_label_color_to_match_public(self, config, mock_client):
+        pub_label = MagicMock()
+        pub_label.name = "bug"
+        pub_label.color = "d73a4a"
+        pub_label.description = "Bug report"
+
+        priv_label = MagicMock()
+        priv_label.name = "bug"
+        priv_label.color = "000000"
+        priv_label.description = "Bug report"
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [])
+        pub_repo.get_labels.return_value = [pub_label]
+        priv_repo.get_labels.return_value = [priv_label]
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        priv_label.edit.assert_called_once_with(
+            name="bug", color="d73a4a", description="Bug report"
+        )
+        assert stats.labels_properties_synced >= 1
+
+    def test_updates_private_label_description(self, config, mock_client):
+        pub_label = MagicMock()
+        pub_label.name = "enhancement"
+        pub_label.color = "a2eeef"
+        pub_label.description = "New feature"
+
+        priv_label = MagicMock()
+        priv_label.name = "enhancement"
+        priv_label.color = "a2eeef"
+        priv_label.description = ""
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [])
+        pub_repo.get_labels.return_value = [pub_label]
+        priv_repo.get_labels.return_value = [priv_label]
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        priv_label.edit.assert_called_once()
+        assert stats.labels_properties_synced >= 1
+
+    def test_no_update_when_labels_identical(self, config, mock_client):
+        pub_label = MagicMock()
+        pub_label.name = "bug"
+        pub_label.color = "d73a4a"
+        pub_label.description = "Bug"
+
+        priv_label = MagicMock()
+        priv_label.name = "bug"
+        priv_label.color = "d73a4a"
+        priv_label.description = "Bug"
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [])
+        pub_repo.get_labels.return_value = [pub_label]
+        priv_repo.get_labels.return_value = [priv_label]
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        priv_label.edit.assert_not_called()
+
+    def test_does_not_create_missing_labels(self, config, mock_client):
+        pub_label = MagicMock()
+        pub_label.name = "public-only"
+        pub_label.color = "ffffff"
+        pub_label.description = ""
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [])
+        pub_repo.get_labels.return_value = [pub_label]
+        priv_repo.get_labels.return_value = []
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        priv_repo.create_label.assert_not_called()
+        pub_repo.create_label.assert_not_called()
+
+
+# ── Per-issue milestone assignment ───────────────────────────────────────────
+
+
+class TestSyncsIssueMilestone:
+    def test_syncs_milestone_public_to_private(self, config, mock_client):
+        pub_ms = make_mock_milestone(title="v1.0")
+        priv_issue = _make_priv_issue()
+        priv_issue.milestone = None
+        mapping_comment = make_mock_comment(body=MAPPING_BODY)
+
+        pub_issue = _make_pub_issue()
+        pub_issue.milestone = pub_ms
+        pub_issue.get_comments.return_value = [mapping_comment]
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
+        pub_repo.get_issue.return_value = pub_issue
+        priv_repo.get_issue.return_value = priv_issue
+        pub_repo.get_milestones.return_value = [pub_ms]
+        priv_repo.get_milestones.return_value = []
+
+        target_ms = make_mock_milestone(title="v1.0")
+        priv_repo.create_milestone.return_value = target_ms
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        assert stats.milestones_assigned >= 1
+        milestone_edits = [
+            c for c in priv_issue.edit.call_args_list
+            if "milestone" in c.kwargs
+        ]
+        assert len(milestone_edits) >= 1
+
+    def test_removes_milestone_when_public_has_none(self, config, mock_client):
+        priv_ms = make_mock_milestone(title="v1.0")
+        priv_issue = _make_priv_issue()
+        priv_issue.milestone = priv_ms
+        mapping_comment = make_mock_comment(body=MAPPING_BODY)
+
+        pub_issue = _make_pub_issue()
+        pub_issue.milestone = None
+        pub_issue.get_comments.return_value = [mapping_comment]
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
+        pub_repo.get_issue.return_value = pub_issue
+        priv_repo.get_issue.return_value = priv_issue
+        pub_repo.get_milestones.return_value = []
+        priv_repo.get_milestones.return_value = [priv_ms]
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        milestone_edits = [
+            c for c in priv_issue.edit.call_args_list
+            if c.kwargs.get("milestone") is None
+        ]
+        assert len(milestone_edits) >= 1
+
+    def test_no_change_when_milestones_match(self, config, mock_client):
+        pub_ms = make_mock_milestone(title="v1.0")
+        priv_ms = make_mock_milestone(title="v1.0")
+
+        priv_issue = _make_priv_issue()
+        priv_issue.milestone = priv_ms
+        mapping_comment = make_mock_comment(body=MAPPING_BODY)
+
+        pub_issue = _make_pub_issue()
+        pub_issue.milestone = pub_ms
+        pub_issue.get_comments.return_value = [mapping_comment]
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
+        pub_repo.get_issue.return_value = pub_issue
+        priv_repo.get_issue.return_value = priv_issue
+        pub_repo.get_milestones.return_value = [pub_ms]
+        priv_repo.get_milestones.return_value = [priv_ms]
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        milestone_edits = [
+            c for c in priv_issue.edit.call_args_list
+            if "milestone" in c.kwargs
+        ]
+        assert len(milestone_edits) == 0

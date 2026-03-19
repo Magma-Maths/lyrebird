@@ -26,6 +26,10 @@ from lyrebird.mapping import (
     resolve_mapping,
     update_private_body_public_section,
 )
+from lyrebird.milestones import (
+    resolve_or_create_milestone,
+    sync_milestone_properties,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +47,10 @@ class SyncStats:
     comments_updated: int = 0
     comments_tombstoned: int = 0
     labels_synced: int = 0
+    milestones_created: int = 0
+    milestones_updated: int = 0
+    milestones_assigned: int = 0
+    labels_properties_synced: int = 0
     errors: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
@@ -56,6 +64,10 @@ class SyncStats:
             f"Comments updated: {self.comments_updated}",
             f"Comments tombstoned: {self.comments_tombstoned}",
             f"Labels synced: {self.labels_synced}",
+            f"Milestones created: {self.milestones_created}",
+            f"Milestones updated: {self.milestones_updated}",
+            f"Milestones assigned: {self.milestones_assigned}",
+            f"Labels properties synced: {self.labels_properties_synced}",
             f"Errors: {len(self.errors)}",
         ]
         if self.errors:
@@ -88,6 +100,12 @@ def sync(
 
     pub_repo = client.get_repo(config.public_repo)
     priv_repo = client.get_repo(config.private_repo)
+
+    # Milestone metadata sync (before issue passes)
+    _sync_milestones(pub_repo, priv_repo, stats)
+
+    # Label property sync (after milestones, before issues)
+    _sync_label_properties(pub_repo, priv_repo, stats)
 
     since_dt = None
     if since_hours is not None:
@@ -139,6 +157,100 @@ def sync(
             stats.errors.append(msg)
 
     return stats
+
+
+# ── Milestone and label metadata reconciliation ──────────────────────────────
+
+
+def _sync_milestones(
+    pub_repo: Repository, priv_repo: Repository, stats: SyncStats
+) -> None:
+    """Reconcile milestones between repos: create missing, update matched."""
+    pub_milestones = {
+        ms.title: ms
+        for state in ("open", "closed")
+        for ms in pub_repo.get_milestones(state=state)
+    }
+    priv_milestones = {
+        ms.title: ms
+        for state in ("open", "closed")
+        for ms in priv_repo.get_milestones(state=state)
+    }
+
+    all_titles = set(pub_milestones) | set(priv_milestones)
+
+    for title in all_titles:
+        pub_ms = pub_milestones.get(title)
+        priv_ms = priv_milestones.get(title)
+
+        if pub_ms and priv_ms:
+            if pub_ms.updated_at >= priv_ms.updated_at:
+                if sync_milestone_properties(priv_ms, pub_ms):
+                    stats.milestones_updated += 1
+            else:
+                if sync_milestone_properties(pub_ms, priv_ms):
+                    stats.milestones_updated += 1
+        elif pub_ms and not priv_ms:
+            resolve_or_create_milestone(priv_repo, pub_ms)
+            stats.milestones_created += 1
+            logger.info("Created milestone '%s' in private repo", title)
+        elif priv_ms and not pub_ms:
+            resolve_or_create_milestone(pub_repo, priv_ms)
+            stats.milestones_created += 1
+            logger.info("Created milestone '%s' in public repo", title)
+
+
+def _sync_label_properties(
+    pub_repo: Repository, priv_repo: Repository, stats: SyncStats
+) -> None:
+    """Sync color and description for labels that exist in both repos.
+
+    Public repo is authoritative (labels lack updated_at).
+    """
+    pub_labels = {lbl.name: lbl for lbl in pub_repo.get_labels()}
+    priv_labels = {lbl.name: lbl for lbl in priv_repo.get_labels()}
+
+    for name in pub_labels:
+        if name not in priv_labels:
+            continue
+
+        pub_lbl = pub_labels[name]
+        priv_lbl = priv_labels[name]
+
+        pub_color = pub_lbl.color or ""
+        priv_color = priv_lbl.color or ""
+        pub_desc = pub_lbl.description or ""
+        priv_desc = priv_lbl.description or ""
+
+        if pub_color != priv_color or pub_desc != priv_desc:
+            priv_lbl.edit(name=name, color=pub_color, description=pub_desc)
+            stats.labels_properties_synced += 1
+            logger.info("Updated label '%s' properties in private repo", name)
+
+
+def _sync_issue_milestone(
+    target_repo: Repository, target_issue, source_issue, stats: SyncStats
+) -> None:
+    """Sync milestone assignment from source issue to target issue."""
+    source_ms_title = source_issue.milestone.title if source_issue.milestone else None
+    target_ms_title = target_issue.milestone.title if target_issue.milestone else None
+
+    if source_ms_title == target_ms_title:
+        return
+
+    if source_ms_title is None:
+        target_issue.edit(milestone=None)
+        stats.milestones_assigned += 1
+        logger.info("Removed milestone from target #%d", target_issue.number)
+    else:
+        target_ms = resolve_or_create_milestone(target_repo, source_issue.milestone)
+        target_issue.edit(milestone=target_ms)
+        stats.milestones_assigned += 1
+        logger.info(
+            "Set milestone '%s' on target #%d",
+            source_ms_title,
+            target_issue.number,
+        )
 
 
 # ── Per-issue sync (pass 1) ─────────────────────────────────────────────────
@@ -209,6 +321,9 @@ def _sync_issue(
 
     # Sync labels (ensure all public labels exist on private, remove extras)
     _sync_labels(config, priv_repo, priv_issue, pub_issue, stats)
+
+    # Sync milestone (public → private)
+    _sync_issue_milestone(priv_repo, priv_issue, pub_issue, stats)
 
     # Sync comments (find missing or edited mirrored comments)
     _sync_comments(config, priv_issue, pub_issue, stats)
@@ -317,13 +432,12 @@ def _check_private_state(
     if pub_issue.state == priv_issue.state:
         if pub_issue.state == "closed":
             _ensure_resolution_note(config, pub_issue, priv_issue, stats)
-        return
+    elif not _last_state_change_is_bot(config, priv_issue):
+        # Only push if a human changed the private state
+        _sync_state_to_public(config, pub_issue, priv_issue, stats)
 
-    # Only push if a human changed the private state
-    if _last_state_change_is_bot(config, priv_issue):
-        return
-
-    _sync_state_to_public(config, pub_issue, priv_issue, stats)
+    # Sync milestone (private → public)
+    _sync_issue_milestone(pub_repo, pub_issue, priv_issue, stats)
 
 
 def _last_state_change_is_bot(config: Config, issue) -> bool:
