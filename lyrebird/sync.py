@@ -500,6 +500,11 @@ def _create_private_mirror(
         if type_name:
             set_issue_type(client, priv_issue, type_name)
 
+    # Mirror milestone if present
+    if pub_issue.milestone:
+        target_ms = resolve_or_create_milestone(priv_repo, pub_issue.milestone)
+        priv_issue.edit(milestone=target_ms)
+
     # Post mapping comment on public issue
     node_id = pub_dict["node_id"]
     mapping_text = build_mapping_comment(config, node_id, priv_issue.number)
