@@ -8,6 +8,7 @@ from github import Github
 
 from lyrebird.config import Config
 from lyrebird.handlers._set_issue_type import set_issue_type
+from lyrebird.milestones import milestone_from_payload, resolve_or_create_milestone
 from lyrebird.mapping import (
     build_mapping_comment,
     build_private_issue_body,
@@ -59,6 +60,13 @@ def handle(client: Github, config: Config, payload: dict) -> None:
     issue_type = (public_issue.get("type") or {}).get("name")
     if issue_type:
         set_issue_type(client, private_issue, issue_type)
+
+    # Mirror milestone if present
+    milestone_data = public_issue.get("milestone")
+    if milestone_data:
+        source_ms = milestone_from_payload(milestone_data)
+        target_ms = resolve_or_create_milestone(priv_repo, source_ms)
+        private_issue.edit(milestone=target_ms)
 
     # Post mapping comment on public issue (only after private creation succeeds)
     pub_repo = client.get_repo(config.public_repo)

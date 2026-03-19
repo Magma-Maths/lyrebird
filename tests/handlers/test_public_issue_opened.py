@@ -168,3 +168,82 @@ def test_self_heals_missing_mapping_comment(config, mock_client):
     mock_pub_issue_obj.create_comment.assert_called_once()
     healed_text = mock_pub_issue_obj.create_comment.call_args[0][0]
     assert "private_issue_number=10" in healed_text
+
+
+def test_mirrors_milestone_on_creation(config, mock_client):
+    """When public issue is created with a milestone, mirror it to private."""
+    public_issue = make_public_issue_payload(
+        milestone={
+            "title": "v1.0",
+            "description": "First release",
+            "due_on": "2026-06-01T00:00:00Z",
+            "state": "open",
+            "number": 1,
+        },
+    )
+    payload = {
+        "issue": public_issue,
+        "sender": {"login": "reporter", "type": "User"},
+    }
+
+    mock_pub_repo = MagicMock()
+    mock_priv_repo = MagicMock()
+    mock_pub_issue_obj = make_mock_issue(number=42)
+    mock_pub_issue_obj.get_comments.return_value = []
+
+    mock_priv_issue = MagicMock()
+    mock_priv_issue.number = 10
+    mock_priv_repo.create_issue.return_value = mock_priv_issue
+    mock_priv_repo.get_issues.return_value = []
+
+    # No existing milestone — will be created
+    mock_priv_repo.get_milestones.return_value = []
+    created_ms = MagicMock()
+    created_ms.title = "v1.0"
+    mock_priv_repo.create_milestone.return_value = created_ms
+
+    def get_repo(name):
+        if name == config.public_repo:
+            return mock_pub_repo
+        return mock_priv_repo
+
+    mock_client.get_repo.side_effect = get_repo
+    mock_pub_repo.get_issue.return_value = mock_pub_issue_obj
+
+    handle(mock_client, config, payload)
+
+    mock_priv_repo.create_milestone.assert_called_once()
+    mock_priv_issue.edit.assert_called_once()
+    assert mock_priv_issue.edit.call_args.kwargs["milestone"] is created_ms
+
+
+def test_no_milestone_edit_when_no_milestone(config, mock_client):
+    """When public issue has no milestone, don't call edit for milestone."""
+    public_issue = make_public_issue_payload()
+    payload = {
+        "issue": public_issue,
+        "sender": {"login": "reporter", "type": "User"},
+    }
+
+    mock_pub_repo = MagicMock()
+    mock_priv_repo = MagicMock()
+    mock_pub_issue_obj = make_mock_issue(number=42)
+    mock_pub_issue_obj.get_comments.return_value = []
+
+    mock_priv_issue = MagicMock()
+    mock_priv_issue.number = 10
+    mock_priv_repo.create_issue.return_value = mock_priv_issue
+    mock_priv_repo.get_issues.return_value = []
+
+    def get_repo(name):
+        if name == config.public_repo:
+            return mock_pub_repo
+        return mock_priv_repo
+
+    mock_client.get_repo.side_effect = get_repo
+    mock_pub_repo.get_issue.return_value = mock_pub_issue_obj
+
+    handle(mock_client, config, payload)
+
+    # edit should NOT be called (no milestone to set)
+    mock_priv_issue.edit.assert_not_called()
