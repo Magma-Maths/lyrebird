@@ -49,6 +49,7 @@ def make_mock_issue(
     labels: list[str] | None = None,
     html_url: str | None = None,
     user_login: str = "reporter",
+    milestone=None,
 ):
     """Create a mock PyGithub Issue object."""
     issue = MagicMock()
@@ -68,6 +69,7 @@ def make_mock_issue(
 
     issue.user = MagicMock()
     issue.user.login = user_login
+    issue.milestone = milestone
 
     # Repository mock
     repo = MagicMock()
@@ -92,6 +94,29 @@ def make_mock_comment(
     return comment
 
 
+def make_mock_milestone(
+    number: int = 1,
+    title: str = "v1.0",
+    description: str = "First release",
+    due_on: str | None = "2026-06-01T00:00:00Z",
+    state: str = "open",
+):
+    """Create a mock PyGithub Milestone object."""
+    from datetime import datetime, timezone
+
+    milestone = MagicMock()
+    milestone.number = number
+    milestone.title = title
+    milestone.description = description
+    milestone.state = state
+    if due_on:
+        milestone.due_on = datetime.fromisoformat(due_on.replace("Z", "+00:00"))
+    else:
+        milestone.due_on = None
+    milestone.updated_at = datetime.now(timezone.utc)
+    return milestone
+
+
 def load_fixture(name: str) -> dict:
     """Load a JSON fixture file."""
     path = FIXTURES_DIR / name
@@ -107,6 +132,7 @@ def make_public_issue_payload(
     state: str = "open",
     user_login: str = "reporter",
     labels: list[dict] | None = None,
+    milestone: dict | None = None,
 ) -> dict:
     """Build a minimal public issue payload dict."""
     return {
@@ -119,6 +145,7 @@ def make_public_issue_payload(
         "user": {"login": user_login},
         "created_at": "2025-01-01T00:00:00Z",
         "labels": labels or [],
+        "milestone": milestone,
     }
 
 
