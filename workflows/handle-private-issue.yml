@@ -6,7 +6,7 @@ name: Handle private issue events
 
 on:
   issues:
-    types: [closed, reopened, labeled, unlabeled, typed, untyped]
+    types: [closed, reopened, labeled, unlabeled, typed, untyped, milestoned, demilestoned]
 
 # Shared env vars — available to all jobs/steps.
 env:
