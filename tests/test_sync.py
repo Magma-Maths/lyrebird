@@ -747,6 +747,67 @@ class TestPreservesPrivateOnlyLabels:
 
         priv_issue.remove_from_labels.assert_not_called()
 
+    def test_preserves_impact_labels(self, config, mock_client):
+        """Impact labels on private must not be removed even if public has none."""
+        priv_issue = _make_priv_issue(labels=["Impact:high"])
+        mapping_comment = make_mock_comment(body=MAPPING_BODY)
+
+        pub_issue = _make_pub_issue(labels=[{"name": "bug", "color": "d73a4a"}])
+        pub_issue.get_comments.return_value = [mapping_comment]
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
+        pub_repo.get_issue.return_value = pub_issue
+        priv_repo.get_issue.return_value = priv_issue
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        priv_issue.remove_from_labels.assert_not_called()
+        # But the public label should still be added
+        priv_issue.add_to_labels.assert_called_once_with("bug")
+
+    def test_preserves_decision_needed_label(self, config, mock_client):
+        """Triage labels like 'Decision needed' must survive sync."""
+        priv_issue = _make_priv_issue(labels=["Decision needed", "Impact:low"])
+        mapping_comment = make_mock_comment(body=MAPPING_BODY)
+
+        pub_issue = _make_pub_issue(labels=[])
+        pub_issue.get_comments.return_value = [mapping_comment]
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
+        pub_repo.get_issue.return_value = pub_issue
+        priv_repo.get_issue.return_value = priv_issue
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        priv_issue.remove_from_labels.assert_not_called()
+
+    def test_adds_public_labels_without_touching_private_labels(self, config, mock_client):
+        """Sync adds missing public labels but leaves private labels untouched."""
+        priv_issue = _make_priv_issue(labels=["Impact:low", "Decision needed"])
+        mapping_comment = make_mock_comment(body=MAPPING_BODY)
+
+        pub_issue = _make_pub_issue(
+            labels=[
+                {"name": "bug", "color": "d73a4a"},
+                {"name": "regression", "color": "e11d48"},
+            ]
+        )
+        pub_issue.get_comments.return_value = [mapping_comment]
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
+        pub_repo.get_issue.return_value = pub_issue
+        priv_repo.get_issue.return_value = priv_issue
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        # Public labels added
+        assert stats.labels_synced == 2
+        add_calls = [c[0][0] for c in priv_issue.add_to_labels.call_args_list]
+        assert "bug" in add_calls
+        assert "regression" in add_calls
+        # Private labels not removed
+        priv_issue.remove_from_labels.assert_not_called()
+
 
 # ── Error handling ───────────────────────────────────────────────────────────
 
