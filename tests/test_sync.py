@@ -730,28 +730,10 @@ class TestSyncsMissingLabel:
         priv_issue.add_to_labels.assert_called_once_with("bug")
 
 
-class TestRemovesExtraLabels:
-    def test_removes_non_protected_label_not_on_public(self, config, mock_client):
-        priv_issue = _make_priv_issue(labels=["stale"])
-        mapping_comment = make_mock_comment(body=MAPPING_BODY)
-
-        pub_issue = _make_pub_issue(labels=[])
-        pub_issue.get_comments.return_value = [mapping_comment]
-
-        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
-        pub_repo.get_issue.return_value = pub_issue
-        priv_repo.get_issue.return_value = priv_issue
-
-        stats = sync(mock_client, config, since_hours=None)
-
-        assert stats.labels_synced == 1
-        priv_issue.remove_from_labels.assert_called_once_with("stale")
-
-
-class TestProtectsResolutionLabels:
-    def test_does_not_remove_resolution_label(self, config, mock_client):
-        """Resolution labels on private should never be removed by sync."""
-        priv_issue = _make_priv_issue(labels=["resolution:completed"])
+class TestPreservesPrivateOnlyLabels:
+    def test_does_not_remove_private_only_labels(self, config, mock_client):
+        """Private-only labels should never be removed by sync."""
+        priv_issue = _make_priv_issue(labels=["stale", "Decision needed", "resolution:completed"])
         mapping_comment = make_mock_comment(body=MAPPING_BODY)
 
         pub_issue = _make_pub_issue(labels=[])
@@ -764,39 +746,6 @@ class TestProtectsResolutionLabels:
         stats = sync(mock_client, config, since_hours=None)
 
         priv_issue.remove_from_labels.assert_not_called()
-
-    def test_does_not_remove_needs_resolution_label(self, config, mock_client):
-        """The needs-resolution label should never be removed by sync."""
-        priv_issue = _make_priv_issue(labels=["resolution:none"])
-        mapping_comment = make_mock_comment(body=MAPPING_BODY)
-
-        pub_issue = _make_pub_issue(labels=[])
-        pub_issue.get_comments.return_value = [mapping_comment]
-
-        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
-        pub_repo.get_issue.return_value = pub_issue
-        priv_repo.get_issue.return_value = priv_issue
-
-        stats = sync(mock_client, config, since_hours=None)
-
-        priv_issue.remove_from_labels.assert_not_called()
-
-    def test_removes_non_protected_but_keeps_resolution(self, config, mock_client):
-        """Sync removes non-protected extras but preserves resolution labels."""
-        priv_issue = _make_priv_issue(labels=["stale", "resolution:completed"])
-        mapping_comment = make_mock_comment(body=MAPPING_BODY)
-
-        pub_issue = _make_pub_issue(labels=[])
-        pub_issue.get_comments.return_value = [mapping_comment]
-
-        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
-        pub_repo.get_issue.return_value = pub_issue
-        priv_repo.get_issue.return_value = priv_issue
-
-        stats = sync(mock_client, config, since_hours=None)
-
-        assert stats.labels_synced == 1
-        priv_issue.remove_from_labels.assert_called_once_with("stale")
 
 
 # ── Error handling ───────────────────────────────────────────────────────────

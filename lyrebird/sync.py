@@ -520,13 +520,8 @@ def _create_private_mirror(
 def _sync_labels(
     config: Config, priv_repo, priv_issue, pub_issue, stats: SyncStats
 ) -> None:
-    """Ensure public labels are on private issue; remove non-protected extras."""
-    pub_label_names = {lbl.name for lbl in pub_issue.labels}
-    priv_labels = list(priv_issue.get_labels())
-    priv_label_names = {lbl.name for lbl in priv_labels}
-
-    # Labels that belong to the private workflow and should not be removed
-    protected = config.all_resolution_label_names() | {config.needs_resolution_label}
+    """Ensure public labels are present on private issue."""
+    priv_label_names = {lbl.name for lbl in priv_issue.get_labels()}
 
     # Add missing
     for lbl in pub_issue.labels:
@@ -547,23 +542,8 @@ def _sync_labels(
                     priv_issue.number,
                 )
 
-    # Remove extras (but not protected private-workflow labels)
-    for lbl in priv_labels:
-        if lbl.name not in pub_label_names and lbl.name not in protected:
-            try:
-                priv_issue.remove_from_labels(lbl.name)
-                stats.labels_synced += 1
-                logger.info(
-                    "Removed label '%s' from private #%d",
-                    lbl.name,
-                    priv_issue.number,
-                )
-            except Exception:
-                logger.warning(
-                    "Could not remove label '%s' from private #%d",
-                    lbl.name,
-                    priv_issue.number,
-                )
+    # Private-only labels are never removed — the private repo may have
+    # its own labels (e.g. triage labels, priority) that don't exist on public.
 
 
 def _ensure_label(repo, label) -> None:
