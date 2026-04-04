@@ -37,13 +37,13 @@ jobs:
     runs-on: ubuntu-slim
     steps:
       - name: Checkout lyrebird
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ vars.LYREBIRD_REPO }}
           path: lyrebird
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -52,7 +52,7 @@ jobs:
 
       - name: Generate App token
         id: app-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.LYREBIRD_APP_ID }}
           private-key: ${{ secrets.LYREBIRD_APP_PRIVATE_KEY }}
