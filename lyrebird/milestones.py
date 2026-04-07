@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from github.GithubObject import NotSet
 from github.Milestone import Milestone
 from github.Repository import Repository
 
@@ -33,7 +34,7 @@ def resolve_or_create_milestone(
     created = target_repo.create_milestone(
         title=source_milestone.title,
         description=source_milestone.description or "",
-        due_on=source_milestone.due_on,
+        due_on=source_milestone.due_on or NotSet,
         state=source_milestone.state,
     )
     logger.info("Created milestone '%s' in %s", source_milestone.title, target_repo.full_name)
@@ -49,7 +50,7 @@ def sync_milestone_properties(
     if (target.description or "") != (source.description or ""):
         updates["description"] = source.description or ""
     if target.due_on != source.due_on:
-        updates["due_on"] = source.due_on
+        updates["due_on"] = source.due_on or NotSet
     if target.state != source.state:
         updates["state"] = source.state
 
