@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+from github.GithubObject import NotSet
+
 from lyrebird.milestones import (
     find_milestone_by_title,
     milestone_from_payload,
@@ -106,6 +108,20 @@ class TestResolveOrCreateMilestone:
         call_kwargs = repo.create_milestone.call_args.kwargs
         assert call_kwargs["state"] == "closed"
 
+    def test_passes_notset_when_due_on_is_none(self):
+        """PyGithub asserts due_on is datetime or NotSet — None must become NotSet."""
+        repo = MagicMock()
+        repo.get_milestones.return_value = []
+
+        source = make_mock_milestone(title="no-deadline", due_on=None)
+        created = make_mock_milestone(title="no-deadline")
+        repo.create_milestone.return_value = created
+
+        resolve_or_create_milestone(repo, source)
+
+        call_kwargs = repo.create_milestone.call_args.kwargs
+        assert call_kwargs["due_on"] is NotSet
+
 
 class TestSyncMilestoneProperties:
     def test_updates_changed_description(self):
@@ -139,6 +155,17 @@ class TestSyncMilestoneProperties:
         assert result is True
         call_kwargs = target.edit.call_args.kwargs
         assert call_kwargs["state"] == "closed"
+
+    def test_passes_notset_when_syncing_due_on_to_none(self):
+        """When source has no due_on, sync should pass NotSet not None."""
+        target = make_mock_milestone(due_on="2026-06-01T00:00:00Z")
+        source = make_mock_milestone(due_on=None)
+
+        result = sync_milestone_properties(target, source)
+
+        assert result is True
+        call_kwargs = target.edit.call_args.kwargs
+        assert call_kwargs["due_on"] is NotSet
 
     def test_no_op_when_identical(self):
         target = make_mock_milestone(
