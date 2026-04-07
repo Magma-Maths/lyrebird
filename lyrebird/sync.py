@@ -205,13 +205,13 @@ def _sync_label_properties(
 ) -> None:
     """Sync color and description for labels that exist in both repos.
 
-    Public repo is authoritative (labels lack updated_at).
+    Private repo is authoritative — public labels are updated to match private.
     """
     pub_labels = {lbl.name: lbl for lbl in pub_repo.get_labels()}
     priv_labels = {lbl.name: lbl for lbl in priv_repo.get_labels()}
 
-    for name in pub_labels:
-        if name not in priv_labels:
+    for name in priv_labels:
+        if name not in pub_labels:
             continue
 
         pub_lbl = pub_labels[name]
@@ -223,9 +223,9 @@ def _sync_label_properties(
         priv_desc = priv_lbl.description or ""
 
         if pub_color != priv_color or pub_desc != priv_desc:
-            priv_lbl.edit(name=name, color=pub_color, description=pub_desc)
+            pub_lbl.edit(name=name, color=priv_color, description=priv_desc)
             stats.labels_properties_synced += 1
-            logger.info("Updated label '%s' properties in private repo", name)
+            logger.info("Updated label '%s' properties in public repo", name)
 
 
 def _sync_issue_milestone(

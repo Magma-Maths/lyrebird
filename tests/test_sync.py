@@ -943,15 +943,16 @@ class TestSyncsMilestoneMetadata:
 
 
 class TestSyncsLabelProperties:
-    def test_updates_private_label_color_to_match_public(self, config, mock_client):
+    def test_updates_public_label_color_to_match_private(self, config, mock_client):
+        """Private is authoritative — public label color updated to match."""
         pub_label = MagicMock()
         pub_label.name = "bug"
-        pub_label.color = "d73a4a"
+        pub_label.color = "000000"
         pub_label.description = "Bug report"
 
         priv_label = MagicMock()
         priv_label.name = "bug"
-        priv_label.color = "000000"
+        priv_label.color = "d73a4a"
         priv_label.description = "Bug report"
 
         pub_repo, priv_repo = _setup_repos(config, mock_client, [])
@@ -960,21 +961,22 @@ class TestSyncsLabelProperties:
 
         stats = sync(mock_client, config, since_hours=None)
 
-        priv_label.edit.assert_called_once_with(
+        pub_label.edit.assert_called_once_with(
             name="bug", color="d73a4a", description="Bug report"
         )
+        priv_label.edit.assert_not_called()
         assert stats.labels_properties_synced >= 1
 
-    def test_updates_private_label_description(self, config, mock_client):
+    def test_updates_public_label_description_to_match_private(self, config, mock_client):
         pub_label = MagicMock()
         pub_label.name = "enhancement"
         pub_label.color = "a2eeef"
-        pub_label.description = "New feature"
+        pub_label.description = ""
 
         priv_label = MagicMock()
         priv_label.name = "enhancement"
         priv_label.color = "a2eeef"
-        priv_label.description = ""
+        priv_label.description = "New feature"
 
         pub_repo, priv_repo = _setup_repos(config, mock_client, [])
         pub_repo.get_labels.return_value = [pub_label]
@@ -982,7 +984,8 @@ class TestSyncsLabelProperties:
 
         stats = sync(mock_client, config, since_hours=None)
 
-        priv_label.edit.assert_called_once()
+        pub_label.edit.assert_called_once()
+        priv_label.edit.assert_not_called()
         assert stats.labels_properties_synced >= 1
 
     def test_no_update_when_labels_identical(self, config, mock_client):
@@ -1002,9 +1005,11 @@ class TestSyncsLabelProperties:
 
         stats = sync(mock_client, config, since_hours=None)
 
+        pub_label.edit.assert_not_called()
         priv_label.edit.assert_not_called()
 
     def test_does_not_create_missing_labels(self, config, mock_client):
+        """Labels only in one repo should NOT be created in the other."""
         pub_label = MagicMock()
         pub_label.name = "public-only"
         pub_label.color = "ffffff"
@@ -1017,6 +1022,21 @@ class TestSyncsLabelProperties:
         stats = sync(mock_client, config, since_hours=None)
 
         priv_repo.create_label.assert_not_called()
+        pub_repo.create_label.assert_not_called()
+
+    def test_private_only_labels_not_pushed_to_public(self, config, mock_client):
+        """Labels only in private should not be created in public."""
+        priv_label = MagicMock()
+        priv_label.name = "Decision needed"
+        priv_label.color = "ff0000"
+        priv_label.description = "Triage"
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [])
+        pub_repo.get_labels.return_value = []
+        priv_repo.get_labels.return_value = [priv_label]
+
+        stats = sync(mock_client, config, since_hours=None)
+
         pub_repo.create_label.assert_not_called()
 
 
