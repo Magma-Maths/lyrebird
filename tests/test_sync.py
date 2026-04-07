@@ -892,28 +892,21 @@ class TestSyncsMilestoneMetadata:
         priv_repo.create_milestone.assert_called_once()
         assert stats.milestones_created >= 1
 
-    def test_creates_missing_milestone_in_public(self, config, mock_client):
+    def test_does_not_create_private_only_milestone_in_public(self, config, mock_client):
+        """Private-only milestones should NOT be created in public repo."""
         priv_ms = make_mock_milestone(title="internal-v3")
         pub_repo, priv_repo = _setup_repos(config, mock_client, [])
         pub_repo.get_milestones.return_value = []
         priv_repo.get_milestones.return_value = [priv_ms]
-        created = make_mock_milestone(title="internal-v3")
-        pub_repo.create_milestone.return_value = created
 
         stats = sync(mock_client, config, since_hours=None)
 
-        pub_repo.create_milestone.assert_called_once()
-        assert stats.milestones_created >= 1
+        pub_repo.create_milestone.assert_not_called()
 
-    def test_updates_matched_milestone_properties(self, config, mock_client):
-        from datetime import datetime, timezone, timedelta
-
-        now = datetime.now(timezone.utc)
+    def test_updates_public_milestone_to_match_private(self, config, mock_client):
+        """Private is authoritative — public milestone properties updated to match."""
         pub_ms = make_mock_milestone(title="v1.0", description="old desc")
-        pub_ms.updated_at = now - timedelta(hours=1)
-
         priv_ms = make_mock_milestone(title="v1.0", description="new desc")
-        priv_ms.updated_at = now
 
         pub_repo, priv_repo = _setup_repos(config, mock_client, [])
         pub_repo.get_milestones.return_value = [pub_ms]
@@ -923,6 +916,7 @@ class TestSyncsMilestoneMetadata:
 
         pub_ms.edit.assert_called_once()
         assert pub_ms.edit.call_args.kwargs["description"] == "new desc"
+        priv_ms.edit.assert_not_called()
         assert stats.milestones_updated >= 1
 
     def test_no_update_when_milestones_identical(self, config, mock_client):

@@ -165,7 +165,13 @@ def sync(
 def _sync_milestones(
     pub_repo: Repository, priv_repo: Repository, stats: SyncStats
 ) -> None:
-    """Reconcile milestones between repos: create missing, update matched."""
+    """Reconcile milestones between repos.
+
+    - Public milestones missing from private are created in private.
+    - Matched milestones: private is authoritative for properties.
+    - Private-only milestones are NOT created in public (they get created
+      on-demand when a mirrored issue is assigned to one).
+    """
     pub_milestones = {
         ms.title: ms
         for state in ("open", "closed")
@@ -177,27 +183,20 @@ def _sync_milestones(
         for ms in priv_repo.get_milestones(state=state)
     }
 
-    all_titles = set(pub_milestones) | set(priv_milestones)
-
-    for title in all_titles:
+    for title in set(pub_milestones) | set(priv_milestones):
         pub_ms = pub_milestones.get(title)
         priv_ms = priv_milestones.get(title)
 
         if pub_ms and priv_ms:
-            if pub_ms.updated_at >= priv_ms.updated_at:
-                if sync_milestone_properties(priv_ms, pub_ms):
-                    stats.milestones_updated += 1
-            else:
-                if sync_milestone_properties(pub_ms, priv_ms):
-                    stats.milestones_updated += 1
+            # Private is authoritative — update public to match
+            if sync_milestone_properties(pub_ms, priv_ms):
+                stats.milestones_updated += 1
         elif pub_ms and not priv_ms:
+            # Public milestone missing from private — create it
             resolve_or_create_milestone(priv_repo, pub_ms)
             stats.milestones_created += 1
             logger.info("Created milestone '%s' in private repo", title)
-        elif priv_ms and not pub_ms:
-            resolve_or_create_milestone(pub_repo, priv_ms)
-            stats.milestones_created += 1
-            logger.info("Created milestone '%s' in public repo", title)
+        # Private-only milestones: do nothing (created in public on-demand)
 
 
 def _sync_label_properties(
