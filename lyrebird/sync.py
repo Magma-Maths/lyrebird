@@ -574,14 +574,14 @@ def _sync_comments(
     config: Config, priv_issue, pub_issue, stats: SyncStats
 ) -> None:
     """Mirror missing comments, update edited ones, tombstone deleted ones."""
-    from lyrebird.loop_prevention import _is_bot_login
+    from lyrebird.loop_prevention import is_bot_login
 
     # Build map of public comments by ID (excluding mapping and bot comments)
     pub_comments: dict[int, object] = {}
     for pc in pub_issue.get_comments():
         if "<!-- mapping:" in (pc.body or ""):
             continue
-        if _is_bot_login(config, pc.user.login):
+        if is_bot_login(config, pc.user.login):
             continue
         pub_comments[pc.id] = pc
 
