@@ -5,7 +5,7 @@ from __future__ import annotations
 from lyrebird.config import Config
 
 
-def _is_bot_login(config: Config, login: str) -> bool:
+def is_bot_login(config: Config, login: str) -> bool:
     """Return True if *login* matches the configured bot identity."""
     if not config.bot_login:
         return False
@@ -25,7 +25,7 @@ def is_bot_event(config: Config, payload: dict) -> bool:
     login = sender.get("login", "")
     sender_type = sender.get("type", "")
 
-    if _is_bot_login(config, login):
+    if is_bot_login(config, login):
         return True
     # GitHub Apps have type "Bot"
     if sender_type == "Bot" and login.endswith("[bot]"):
