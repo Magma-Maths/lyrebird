@@ -1,4 +1,4 @@
-"""Handle public label added/removed: mirror to private issue."""
+"""Handle public label added/removed: ensure mirror, then mirror label change."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import logging
 from github import Github
 
 from lyrebird.config import Config
-from lyrebird.mapping import resolve_mapping
+from lyrebird.handlers._ensure_mapping import ensure_private_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -21,18 +21,10 @@ def handle(client: Github, config: Config, payload: dict) -> None:
     if not label_name:
         return
 
-    mapping = resolve_mapping(client, config, public_issue)
-    if mapping is None:
-        logger.warning(
-            "No mapping for public #%d, skipping label change",
-            public_issue["number"],
-        )
-        return
-
+    mapping = ensure_private_mapping(client, config, public_issue)
     priv_repo = mapping.private_issue.repository
 
     if action == "labeled":
-        # Ensure label exists in private repo
         _ensure_label(priv_repo, label_data)
         mapping.private_issue.add_to_labels(label_name)
         logger.info(
