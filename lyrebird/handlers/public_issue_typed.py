@@ -18,7 +18,4 @@ def handle(client: Github, config: Config, payload: dict) -> None:
     issue_type = (public_issue.get("type") or {}).get("name")
 
     mapping = ensure_private_mapping(client, config, public_issue)
-
-    priv_repo = client.get_repo(config.private_repo)
-    priv_issue = priv_repo.get_issue(mapping.private_issue_number)
-    set_issue_type(client, priv_issue, issue_type)
+    set_issue_type(client, mapping.private_issue, issue_type)

@@ -18,9 +18,8 @@ def handle(client: Github, config: Config, payload: dict) -> None:
     public_issue = payload["issue"]
 
     mapping = ensure_private_mapping(client, config, public_issue)
-
     priv_repo = client.get_repo(config.private_repo)
-    priv_issue = priv_repo.get_issue(mapping.private_issue_number)
+    priv_issue = mapping.private_issue
 
     if action == "milestoned":
         milestone_data = payload["milestone"]
