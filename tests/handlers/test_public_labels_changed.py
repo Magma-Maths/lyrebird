@@ -123,3 +123,39 @@ def test_removes_label_from_private(config, mock_client):
     handle(mock_client, config, payload)
 
     mock_private.remove_from_labels.assert_called_with("bug")
+
+
+def test_bootstraps_when_no_mapping(config, mock_client):
+    """When `labeled` arrives before `opened` ran, bootstrap the mirror."""
+    public_issue = make_public_issue_payload(
+        labels=[{"name": "bug", "color": "d73a4a", "description": ""}]
+    )
+    payload = {
+        "issue": public_issue,
+        "action": "labeled",
+        "label": {"name": "bug", "color": "d73a4a", "description": ""},
+    }
+
+    mock_pub_repo = MagicMock()
+    mock_priv_repo = MagicMock()
+    mock_pub_issue_obj = make_mock_issue(number=42)
+    mock_pub_issue_obj.get_comments.return_value = []
+    mock_priv_repo.get_issues.return_value = []
+
+    mock_priv_issue = MagicMock()
+    mock_priv_issue.number = 99
+    mock_priv_repo.create_issue.return_value = mock_priv_issue
+
+    def get_repo(name):
+        if name == config.public_repo:
+            return mock_pub_repo
+        return mock_priv_repo
+
+    mock_client.get_repo.side_effect = get_repo
+    mock_pub_repo.get_issue.return_value = mock_pub_issue_obj
+
+    handle(mock_client, config, payload)
+
+    mock_priv_repo.create_issue.assert_called_once()
+    create_kwargs = mock_priv_repo.create_issue.call_args.kwargs
+    assert "bug" in create_kwargs["labels"]
