@@ -91,13 +91,23 @@ class TestMilestoned:
         mock_priv_issue.edit.assert_called_once()
         assert mock_priv_issue.edit.call_args.kwargs["milestone"] is existing_ms
 
-    def test_no_op_when_no_mapping(self, config, mock_client):
+    def test_bootstraps_when_no_mapping(self, config, mock_client):
+        """When `milestoned` arrives before `opened` ran, bootstrap the mirror."""
         payload = _make_milestone_payload()
         mock_pub_repo = MagicMock()
         mock_priv_repo = MagicMock()
         mock_pub_issue = make_mock_issue(number=42)
         mock_pub_issue.get_comments.return_value = []
         mock_priv_repo.get_issues.return_value = []
+        mock_priv_repo.get_milestones.return_value = []
+
+        mock_priv_issue = MagicMock()
+        mock_priv_issue.number = 99
+        mock_priv_repo.create_issue.return_value = mock_priv_issue
+
+        created_ms = MagicMock()
+        created_ms.title = "v1.0"
+        mock_priv_repo.create_milestone.return_value = created_ms
 
         def get_repo(name):
             if name == config.public_repo:
@@ -106,10 +116,11 @@ class TestMilestoned:
 
         mock_client.get_repo.side_effect = get_repo
         mock_pub_repo.get_issue.return_value = mock_pub_issue
+        mock_priv_repo.get_issue.return_value = mock_priv_issue
 
         handle(mock_client, config, payload)
 
-        mock_priv_repo.create_milestone.assert_not_called()
+        mock_priv_repo.create_issue.assert_called_once()
 
 
 class TestDemilestoned:

@@ -1,4 +1,4 @@
-"""Handle public issue milestoned/demilestoned: mirror to private."""
+"""Handle public issue milestoned/demilestoned: ensure mirror, then sync milestone."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import logging
 from github import Github
 
 from lyrebird.config import Config
-from lyrebird.mapping import resolve_mapping
+from lyrebird.handlers._ensure_mapping import ensure_private_mapping
 from lyrebird.milestones import milestone_from_payload, resolve_or_create_milestone
 
 logger = logging.getLogger(__name__)
@@ -17,13 +17,7 @@ def handle(client: Github, config: Config, payload: dict) -> None:
     action = payload["action"]
     public_issue = payload["issue"]
 
-    mapping = resolve_mapping(client, config, public_issue)
-    if mapping is None:
-        logger.info(
-            "No mapping for public #%d, skipping milestone sync",
-            public_issue["number"],
-        )
-        return
+    mapping = ensure_private_mapping(client, config, public_issue)
 
     priv_repo = client.get_repo(config.private_repo)
     priv_issue = priv_repo.get_issue(mapping.private_issue_number)
