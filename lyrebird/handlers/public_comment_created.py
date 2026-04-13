@@ -1,4 +1,4 @@
-"""Handle public comment created: mirror to private issue."""
+"""Handle public comment created: ensure mirror exists, then mirror the comment."""
 
 from __future__ import annotations
 
@@ -7,7 +7,8 @@ import logging
 from github import Github
 
 from lyrebird.config import Config
-from lyrebird.mapping import build_mirrored_comment_body, resolve_mapping
+from lyrebird.handlers._ensure_mapping import ensure_private_mapping
+from lyrebird.mapping import build_mirrored_comment_body
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +30,7 @@ def handle(client: Github, config: Config, payload: dict) -> None:
         )
         return
 
-    mapping = resolve_mapping(client, config, public_issue)
-    if mapping is None:
-        logger.warning(
-            "No mapping for public #%d, skipping comment", public_issue["number"]
-        )
-        return
+    mapping = ensure_private_mapping(client, config, public_issue)
 
     body = build_mirrored_comment_body(
         author=comment["user"]["login"],

@@ -57,3 +57,36 @@ def test_skips_bot_authored_comment(config, mock_client):
 
     # Should return early — no repo lookups at all
     mock_client.get_repo.assert_not_called()
+
+
+def test_bootstraps_when_no_mapping(config, mock_client):
+    """When a comment arrives before the issue's `opened` ran, bootstrap the mirror."""
+    payload = make_comment_payload(comment_id=555, body="First comment")
+
+    mock_pub_repo = MagicMock()
+    mock_priv_repo = MagicMock()
+    mock_pub_issue_obj = make_mock_issue(number=42)
+    mock_pub_issue_obj.get_comments.return_value = []
+    mock_priv_repo.get_issues.return_value = []
+
+    mock_priv_issue = MagicMock()
+    mock_priv_issue.number = 99
+    mock_priv_repo.create_issue.return_value = mock_priv_issue
+
+    def get_repo(name):
+        if name == config.public_repo:
+            return mock_pub_repo
+        return mock_priv_repo
+
+    mock_client.get_repo.side_effect = get_repo
+    mock_pub_repo.get_issue.return_value = mock_pub_issue_obj
+    mock_priv_repo.get_issue.return_value = mock_priv_issue
+
+    handle(mock_client, config, payload)
+
+    # Bootstrap happened
+    mock_priv_repo.create_issue.assert_called_once()
+    # Comment mirrored onto the bootstrapped private issue
+    mock_priv_issue.create_comment.assert_called()
+    mirrored = mock_priv_issue.create_comment.call_args[0][0]
+    assert "First comment" in mirrored
