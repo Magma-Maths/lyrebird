@@ -46,8 +46,9 @@ def test_updates_private_title_and_body(config, mock_client):
     assert "Updated body" in edit_kwargs["body"]
 
 
-def test_no_mapping_skips(config, mock_client):
-    public_issue = make_public_issue_payload()
+def test_no_mapping_bootstraps_then_edits(config, mock_client):
+    """When no mapping exists, bootstrap the private mirror from the edited payload."""
+    public_issue = make_public_issue_payload(title="Edited title", body="Edited body")
     payload = {"issue": public_issue}
 
     mock_pub_repo = MagicMock()
@@ -55,6 +56,14 @@ def test_no_mapping_skips(config, mock_client):
     mock_pub_issue_obj = make_mock_issue(number=42)
     mock_pub_issue_obj.get_comments.return_value = []
     mock_priv_repo.get_issues.return_value = []
+
+    # Bootstrap creates this private issue
+    mock_priv_issue = MagicMock()
+    mock_priv_issue.number = 99
+    mock_priv_issue.body = make_private_issue_body(
+        public_number=42, public_body="Edited body"
+    )
+    mock_priv_repo.create_issue.return_value = mock_priv_issue
 
     def get_repo(name):
         if name == config.public_repo:
@@ -65,4 +74,9 @@ def test_no_mapping_skips(config, mock_client):
     mock_pub_repo.get_issue.return_value = mock_pub_issue_obj
 
     handle(mock_client, config, payload)
-    # No private issue to edit
+
+    # Private issue bootstrapped with the edited title/body
+    mock_priv_repo.create_issue.assert_called_once()
+    create_kwargs = mock_priv_repo.create_issue.call_args.kwargs
+    assert "[public #42] Edited title" == create_kwargs["title"]
+    assert "Edited body" in create_kwargs["body"]
