@@ -41,7 +41,7 @@ def ensure_private_mapping(
 
     label_names = [lbl["name"] for lbl in public_issue.get("labels", [])]
     for lbl in public_issue.get("labels", []):
-        _ensure_label(priv_repo, lbl)
+        ensure_label(priv_repo, lbl)
 
     private_issue = priv_repo.create_issue(
         title=title,
@@ -78,7 +78,7 @@ def ensure_private_mapping(
     )
 
 
-def _ensure_label(repo, label_data: dict) -> None:
+def ensure_label(repo, label_data: dict) -> None:
     """Create label in repo if it doesn't exist. Silent on failure."""
     try:
         repo.get_label(label_data["name"])
