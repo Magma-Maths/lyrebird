@@ -1,4 +1,4 @@
-"""Handle public issue closed/reopened: sync state + audit comment."""
+"""Handle public issue closed/reopened: ensure mirror, sync state, post audit comment."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from github import Github
 
 from lyrebird.config import Config
 from lyrebird.handlers._cleanup_labels import cleanup_private_resolution_labels
-from lyrebird.mapping import resolve_mapping
+from lyrebird.handlers._ensure_mapping import ensure_private_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +18,7 @@ def handle(client: Github, config: Config, payload: dict) -> None:
     action = payload["action"]  # "closed" or "reopened"
     sender = payload.get("sender", {}).get("login", "unknown")
 
-    mapping = resolve_mapping(client, config, public_issue)
-    if mapping is None:
-        logger.warning(
-            "No mapping for public #%d, skipping state change",
-            public_issue["number"],
-        )
-        return
+    mapping = ensure_private_mapping(client, config, public_issue)
 
     private_issue = mapping.private_issue
     is_reporter = sender == public_issue["user"]["login"]

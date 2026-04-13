@@ -152,22 +152,43 @@ def test_reopen_cleans_resolution_labels(config, mock_client):
     assert "resolution:none" in removed
 
 
-def test_no_mapping_returns_early(config, mock_client):
-    """When resolve_mapping returns None, handler exits without touching anything."""
-    public_issue = make_public_issue_payload(user_login="reporter")
+def test_close_bootstraps_when_no_mapping(config, mock_client):
+    """When `closed` arrives before `opened` ran, bootstrap the mirror then close it."""
+    public_issue = make_public_issue_payload(state="closed")
+    public_issue["state_reason"] = "completed"
     payload = {
-        "action": "closed",
         "issue": public_issue,
-        "sender": {"login": "closer", "type": "User"},
+        "action": "closed",
+        "sender": {"login": "reporter", "type": "User"},
     }
 
-    with patch(
-        "lyrebird.handlers.public_issue_state.resolve_mapping", return_value=None
-    ):
-        handle(mock_client, config, payload)
+    mock_pub_repo = MagicMock()
+    mock_priv_repo = MagicMock()
+    mock_pub_issue_obj = make_mock_issue(number=42)
+    mock_pub_issue_obj.get_comments.return_value = []
+    mock_priv_repo.get_issues.return_value = []
 
-    # No repo interaction beyond what resolve_mapping does internally
-    mock_client.get_repo.assert_not_called()
+    mock_priv_issue = MagicMock()
+    mock_priv_issue.number = 99
+    mock_priv_repo.create_issue.return_value = mock_priv_issue
+
+    def get_repo(name):
+        if name == config.public_repo:
+            return mock_pub_repo
+        return mock_priv_repo
+
+    mock_client.get_repo.side_effect = get_repo
+    mock_pub_repo.get_issue.return_value = mock_pub_issue_obj
+
+    handle(mock_client, config, payload)
+
+    # Bootstrap happened
+    mock_priv_repo.create_issue.assert_called_once()
+    # And the private issue was then closed
+    edit_calls = mock_priv_issue.edit.call_args_list
+    assert any(
+        c.kwargs.get("state") == "closed" for c in edit_calls
+    ), "private issue should have been closed after bootstrap"
 
 
 def test_reopen_by_non_reporter_no_reporter_note(config, mock_client):
