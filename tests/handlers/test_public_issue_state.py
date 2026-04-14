@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from lyrebird.handlers.public_issue_state import handle
-from tests.conftest import make_mock_issue, make_public_issue_payload
+from tests.conftest import (
+    make_mock_issue,
+    make_public_issue_payload,
+    setup_missing_mapping,
+)
 
 
 def _setup_mocks(config, mock_client):
@@ -162,29 +166,13 @@ def test_close_bootstraps_when_no_mapping(config, mock_client):
         "sender": {"login": "reporter", "type": "User"},
     }
 
-    mock_pub_repo = MagicMock()
-    mock_priv_repo = MagicMock()
-    mock_pub_issue_obj = make_mock_issue(number=42)
-    mock_pub_issue_obj.get_comments.return_value = []
-    mock_priv_repo.get_issues.return_value = []
-
-    mock_priv_issue = MagicMock()
-    mock_priv_issue.number = 99
-    mock_priv_repo.create_issue.return_value = mock_priv_issue
-
-    def get_repo(name):
-        if name == config.public_repo:
-            return mock_pub_repo
-        return mock_priv_repo
-
-    mock_client.get_repo.side_effect = get_repo
-    mock_pub_repo.get_issue.return_value = mock_pub_issue_obj
+    _, mock_priv_repo, _, mock_priv_issue = setup_missing_mapping(config, mock_client)
 
     handle(mock_client, config, payload)
 
     # Bootstrap happened
     mock_priv_repo.create_issue.assert_called_once()
-    # And the private issue was then closed
+    # And the private issue was then closed (bootstrap can only create in open state)
     edit_calls = mock_priv_issue.edit.call_args_list
     assert any(
         c.kwargs.get("state") == "closed" for c in edit_calls

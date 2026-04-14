@@ -169,6 +169,32 @@ def make_comment_payload(
     }
 
 
+def setup_missing_mapping(config, mock_client, private_issue_number: int = 99):
+    """Wire mock_client so resolve_mapping() returns None and create_issue
+    returns a mock private issue with the given number.
+
+    Returns (mock_pub_repo, mock_priv_repo, mock_pub_issue, mock_priv_issue).
+    """
+    mock_pub_repo = MagicMock()
+    mock_priv_repo = MagicMock()
+    mock_pub_issue = make_mock_issue(number=42)
+    mock_pub_issue.get_comments.return_value = []
+    mock_priv_repo.get_issues.return_value = []
+    mock_priv_repo.get_milestones.return_value = []
+
+    mock_priv_issue = MagicMock()
+    mock_priv_issue.number = private_issue_number
+    mock_priv_repo.create_issue.return_value = mock_priv_issue
+
+    mock_client.get_repo.side_effect = lambda name: (
+        mock_pub_repo if name == config.public_repo else mock_priv_repo
+    )
+    mock_pub_repo.get_issue.return_value = mock_pub_issue
+    mock_priv_repo.get_issue.return_value = mock_priv_issue
+
+    return mock_pub_repo, mock_priv_repo, mock_pub_issue, mock_priv_issue
+
+
 def make_private_issue_body(
     public_number: int = 42,
     public_node_id: str = "I_kwDOTest",
