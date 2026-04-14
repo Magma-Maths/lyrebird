@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 def handle(client: Github, config: Config, payload: dict) -> None:
     public_issue = payload["issue"]
     mapping = ensure_private_mapping(client, config, public_issue)
+    if mapping.was_bootstrapped:
+        # Bootstrap already created the private issue with the edited payload's
+        # title and body — no edit needed.
+        return
 
     private_issue = mapping.private_issue
     new_title = build_private_issue_title(public_issue)

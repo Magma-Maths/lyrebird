@@ -18,4 +18,8 @@ def handle(client: Github, config: Config, payload: dict) -> None:
     issue_type = (public_issue.get("type") or {}).get("name")
 
     mapping = ensure_private_mapping(client, config, public_issue)
+    if mapping.was_bootstrapped:
+        # Bootstrap already set the type from the payload.
+        return
+
     set_issue_type(client, mapping.private_issue, issue_type)
