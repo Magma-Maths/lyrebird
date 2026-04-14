@@ -66,7 +66,10 @@ class PrivateMapping:
     """Result of resolving a public issue to its private mirror."""
     private_issue: Issue
     private_issue_number: int
-    was_self_healed: bool = False
+    # True when ensure_private_mapping created the mirror during this call.
+    # Handlers use this to skip redundant work already applied by bootstrap
+    # from the webhook payload's post-action state.
+    was_bootstrapped: bool = False
 
 
 # ── Pure builders / parsers ──────────────────────────────────────────────────
@@ -192,18 +195,26 @@ def find_mapping_in_comments(comments: list) -> tuple[str, int] | None:
 
 
 def resolve_mapping(
-    client: Github, config: Config, public_issue: dict
+    client: Github,
+    config: Config,
+    public_issue: dict,
+    *,
+    pub_issue: Issue | None = None,
 ) -> PrivateMapping | None:
     """3-step lookup: mapping comment → fallback body search → None.
 
     If fallback succeeds, self-heals by re-posting the mapping comment.
+
+    Callers that already hold the PyGithub `Issue` (e.g. ensure_private_mapping)
+    can pass it as `pub_issue` to save an HTTP fetch.
     """
     node_id = public_issue["node_id"]
     public_number = public_issue["number"]
 
     # Step 1: Check mapping comment on public issue
-    pub_repo = client.get_repo(config.public_repo)
-    pub_issue = pub_repo.get_issue(public_number)
+    if pub_issue is None:
+        pub_repo = client.get_repo(config.public_repo)
+        pub_issue = pub_repo.get_issue(public_number)
     comments = list(pub_issue.get_comments())
     mapping = find_mapping_in_comments(comments)
     if mapping:
@@ -232,7 +243,6 @@ def resolve_mapping(
             return PrivateMapping(
                 private_issue=issue,
                 private_issue_number=issue.number,
-                was_self_healed=True,
             )
 
     # Step 3: No mapping found

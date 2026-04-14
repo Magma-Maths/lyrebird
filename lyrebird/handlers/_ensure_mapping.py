@@ -25,13 +25,16 @@ def ensure_private_mapping(
 ) -> PrivateMapping:
     """Return the private mapping, creating a new private issue if missing.
 
-    This is the single entry point every public handler calls before touching
-    the private mirror. If a previous `opened` event was dropped (e.g. cancelled
-    by the Actions concurrency queue), the first handler that runs will create
-    the mirror here using the full current state from the payload. Subsequent
-    handlers find the mapping and proceed normally.
+    Bootstraps on demand because GitHub Actions' concurrency queue can silently
+    drop `opened` events, so later events must be able to create the mirror.
+    The returned PrivateMapping has `was_bootstrapped=True` when a new issue
+    was created here — callers can use this to skip mutations already applied
+    from the webhook payload's post-action state.
     """
-    existing = resolve_mapping(client, config, public_issue)
+    pub_repo = client.get_repo(config.public_repo)
+    pub_issue = pub_repo.get_issue(public_issue["number"])
+
+    existing = resolve_mapping(client, config, public_issue, pub_issue=pub_issue)
     if existing is not None:
         return existing
 
@@ -64,8 +67,6 @@ def ensure_private_mapping(
         target_ms = resolve_or_create_milestone(priv_repo, source_ms)
         private_issue.edit(milestone=target_ms)
 
-    pub_repo = client.get_repo(config.public_repo)
-    pub_issue = pub_repo.get_issue(public_issue["number"])
     mapping_text = build_mapping_comment(
         config, public_issue["node_id"], private_issue.number
     )
@@ -75,6 +76,7 @@ def ensure_private_mapping(
     return PrivateMapping(
         private_issue=private_issue,
         private_issue_number=private_issue.number,
+        was_bootstrapped=True,
     )
 
 

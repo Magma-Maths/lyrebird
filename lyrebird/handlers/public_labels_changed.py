@@ -22,6 +22,10 @@ def handle(client: Github, config: Config, payload: dict) -> None:
         return
 
     mapping = ensure_private_mapping(client, config, public_issue)
+    if mapping.was_bootstrapped:
+        # Bootstrap already applied the payload's label set.
+        return
+
     priv_repo = mapping.private_issue.repository
 
     if action == "labeled":

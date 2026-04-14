@@ -18,6 +18,10 @@ def handle(client: Github, config: Config, payload: dict) -> None:
     public_issue = payload["issue"]
 
     mapping = ensure_private_mapping(client, config, public_issue)
+    if mapping.was_bootstrapped:
+        # Bootstrap already applied the payload's milestone state.
+        return
+
     priv_repo = client.get_repo(config.private_repo)
     priv_issue = mapping.private_issue
 
