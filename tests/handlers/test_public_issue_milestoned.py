@@ -10,6 +10,7 @@ from tests.conftest import (
     make_mock_milestone,
     make_private_issue_body,
     make_public_issue_payload,
+    setup_missing_mapping,
 )
 
 
@@ -19,18 +20,25 @@ def _make_milestone_payload(
     issue_node_id: str = "I_kwDOTest",
     milestone_title: str = "v1.0",
 ) -> dict:
+    milestone = {
+        "title": milestone_title,
+        "description": "Release milestone",
+        "due_on": "2026-06-01T00:00:00Z",
+        "state": "open",
+        "number": 1,
+    }
+    # Real GitHub webhooks populate milestone in BOTH places for milestoned events.
+    # For demilestoned, issue.milestone is None but the top-level milestone is the
+    # just-removed one.
+    issue_milestone = milestone if action == "milestoned" else None
     return {
         "action": action,
         "issue": make_public_issue_payload(
-            number=issue_number, node_id=issue_node_id
+            number=issue_number,
+            node_id=issue_node_id,
+            milestone=issue_milestone,
         ),
-        "milestone": {
-            "title": milestone_title,
-            "description": "Release milestone",
-            "due_on": "2026-06-01T00:00:00Z",
-            "state": "open",
-            "number": 1,
-        },
+        "milestone": milestone,
         "sender": {"login": "reporter", "type": "User"},
     }
 
@@ -94,33 +102,22 @@ class TestMilestoned:
     def test_bootstraps_when_no_mapping(self, config, mock_client):
         """When `milestoned` arrives before `opened` ran, bootstrap the mirror."""
         payload = _make_milestone_payload()
-        mock_pub_repo = MagicMock()
-        mock_priv_repo = MagicMock()
-        mock_pub_issue = make_mock_issue(number=42)
-        mock_pub_issue.get_comments.return_value = []
-        mock_priv_repo.get_issues.return_value = []
-        mock_priv_repo.get_milestones.return_value = []
-
-        mock_priv_issue = MagicMock()
-        mock_priv_issue.number = 99
-        mock_priv_repo.create_issue.return_value = mock_priv_issue
+        _, mock_priv_repo, _, mock_priv_issue = setup_missing_mapping(config, mock_client)
 
         created_ms = MagicMock()
         created_ms.title = "v1.0"
         mock_priv_repo.create_milestone.return_value = created_ms
 
-        def get_repo(name):
-            if name == config.public_repo:
-                return mock_pub_repo
-            return mock_priv_repo
-
-        mock_client.get_repo.side_effect = get_repo
-        mock_pub_repo.get_issue.return_value = mock_pub_issue
-        mock_priv_repo.get_issue.return_value = mock_priv_issue
-
         handle(mock_client, config, payload)
 
         mock_priv_repo.create_issue.assert_called_once()
+        # Bootstrap sets the milestone once via .edit(milestone=...); handler
+        # short-circuits so there should be exactly one milestone edit.
+        milestone_edits = [
+            c for c in mock_priv_issue.edit.call_args_list
+            if "milestone" in c.kwargs
+        ]
+        assert len(milestone_edits) == 1
 
 
 class TestDemilestoned:

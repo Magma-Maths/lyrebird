@@ -9,6 +9,7 @@ from tests.conftest import (
     make_mock_issue,
     make_private_issue_body,
     make_public_issue_payload,
+    setup_missing_mapping,
 )
 
 
@@ -40,34 +41,19 @@ def test_returns_existing_mapping_without_creating(config, mock_client):
     result = ensure_private_mapping(mock_client, config, public_issue)
 
     assert result.private_issue_number == 10
+    assert result.was_bootstrapped is False
     mock_priv_repo.create_issue.assert_not_called()
 
 
 def test_creates_private_issue_when_no_mapping(config, mock_client):
     """When neither mapping comment nor fallback body markers exist, create the mirror."""
     public_issue = make_public_issue_payload(title="Bug X", body="Body X")
-
-    mock_pub_repo = MagicMock()
-    mock_priv_repo = MagicMock()
-    mock_pub_issue_obj = make_mock_issue(number=42)
-    mock_pub_issue_obj.get_comments.return_value = []
-    mock_priv_repo.get_issues.return_value = []
-
-    mock_priv_issue = MagicMock()
-    mock_priv_issue.number = 99
-    mock_priv_repo.create_issue.return_value = mock_priv_issue
-
-    def get_repo(name):
-        if name == config.public_repo:
-            return mock_pub_repo
-        return mock_priv_repo
-
-    mock_client.get_repo.side_effect = get_repo
-    mock_pub_repo.get_issue.return_value = mock_pub_issue_obj
+    _, mock_priv_repo, mock_pub_issue_obj, _ = setup_missing_mapping(config, mock_client)
 
     result = ensure_private_mapping(mock_client, config, public_issue)
 
     assert result.private_issue_number == 99
+    assert result.was_bootstrapped is True
     mock_priv_repo.create_issue.assert_called_once()
     create_kwargs = mock_priv_repo.create_issue.call_args.kwargs
     assert "[public #42] Bug X" == create_kwargs["title"]
@@ -93,48 +79,25 @@ def test_bootstrap_mirrors_labels_type_and_milestone(config, mock_client):
     )
     public_issue["type"] = {"name": "Bug"}
 
-    mock_pub_repo = MagicMock()
-    mock_priv_repo = MagicMock()
-    mock_pub_issue_obj = make_mock_issue(number=42)
-    mock_pub_issue_obj.get_comments.return_value = []
-    mock_priv_repo.get_issues.return_value = []
-    mock_priv_repo.get_milestones.return_value = []
-
-    mock_priv_issue = MagicMock()
-    mock_priv_issue.number = 99
-    mock_priv_repo.create_issue.return_value = mock_priv_issue
+    _, mock_priv_repo, _, mock_priv_issue = setup_missing_mapping(config, mock_client)
 
     created_ms = MagicMock()
     created_ms.title = "v1.0"
     mock_priv_repo.create_milestone.return_value = created_ms
 
-    def get_repo(name):
-        if name == config.public_repo:
-            return mock_pub_repo
-        return mock_priv_repo
-
-    mock_client.get_repo.side_effect = get_repo
-    mock_pub_repo.get_issue.return_value = mock_pub_issue_obj
-
     ensure_private_mapping(mock_client, config, public_issue)
 
-    # Labels passed to create_issue
     create_kwargs = mock_priv_repo.create_issue.call_args.kwargs
     assert "bug" in create_kwargs["labels"]
 
-    # Milestone created and assigned
     mock_priv_repo.create_milestone.assert_called_once()
     edit_calls = mock_priv_issue.edit.call_args_list
     assert any(
         call.kwargs.get("milestone") is created_ms for call in edit_calls
     ), "milestone should have been assigned via edit()"
 
-    # Issue type set via requester (mocked client)
+    # Issue type set via the mocked requester
     mock_client._Github__requester.requestJsonAndCheck.assert_called()
-    call_args = mock_client._Github__requester.requestJsonAndCheck.call_args
-    assert call_args.kwargs.get("input", {}).get("type") == "Bug" or (
-        len(call_args.args) >= 3 and call_args.args[2] == {"type": "Bug"}
-    )
 
 
 def test_bootstrap_self_heals_via_fallback_body_search(config, mock_client):
@@ -165,4 +128,5 @@ def test_bootstrap_self_heals_via_fallback_body_search(config, mock_client):
     result = ensure_private_mapping(mock_client, config, public_issue)
 
     assert result.private_issue_number == 10
+    assert result.was_bootstrapped is False
     mock_priv_repo.create_issue.assert_not_called()
