@@ -53,10 +53,26 @@ def test_bootstraps_when_no_mapping(config, mock_client):
 
     _, mock_priv_repo, _, _ = setup_missing_mapping(config, mock_client)
 
-    # Baseline: how many requester calls fire during bootstrap (for set_issue_type
-    # inside ensure_private_mapping). The handler must not add another one.
     handle(mock_client, config, payload)
 
     mock_priv_repo.create_issue.assert_called_once()
     # Bootstrap sets the type once; handler short-circuits instead of setting it again.
     assert mock_client._Github__requester.requestJsonAndCheck.call_count == 1
+
+
+def test_untyped_bootstraps_then_clears(config, mock_client):
+    """When `untyped` arrives before `opened`, the handler must explicitly clear
+    the type — we can't trust that payload.issue.type is post-action state, so
+    the short-circuit is scoped to `typed` only."""
+    public_issue = make_public_issue_payload()
+    # Simulate pre-state delivery: issue.type still contains the removed type.
+    public_issue["type"] = {"name": "Bug"}
+    payload = {"issue": public_issue, "action": "untyped"}
+
+    _, mock_priv_repo, _, _ = setup_missing_mapping(config, mock_client)
+
+    handle(mock_client, config, payload)
+
+    mock_priv_repo.create_issue.assert_called_once()
+    # Bootstrap set type (1 call), handler then explicitly cleared it (2nd call).
+    assert mock_client._Github__requester.requestJsonAndCheck.call_count == 2

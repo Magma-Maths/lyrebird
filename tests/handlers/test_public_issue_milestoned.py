@@ -120,6 +120,28 @@ class TestMilestoned:
         assert len(milestone_edits) == 1
 
 
+class TestDemilestonedBootstrap:
+    def test_demilestoned_bootstraps_then_clears(self, config, mock_client):
+        """When `demilestoned` arrives before `opened`, the handler must explicitly
+        clear the milestone on the newly bootstrapped mirror — bootstrap sees
+        issue.milestone=None and skips assignment, so there's nothing to clear
+        (harmless), but we still fall through for symmetry with `unlabeled`/`untyped`."""
+        payload = _make_milestone_payload(action="demilestoned")
+        _, mock_priv_repo, _, mock_priv_issue = setup_missing_mapping(config, mock_client)
+
+        handle(mock_client, config, payload)
+
+        mock_priv_repo.create_issue.assert_called_once()
+        # Bootstrap skipped milestone (issue.milestone=None). Handler falls
+        # through and explicitly sets milestone=None on the mirror.
+        milestone_edits = [
+            c for c in mock_priv_issue.edit.call_args_list
+            if "milestone" in c.kwargs
+        ]
+        assert len(milestone_edits) == 1
+        assert milestone_edits[0].kwargs["milestone"] is None
+
+
 class TestDemilestoned:
     def test_removes_milestone_from_private(self, config, mock_client):
         payload = _make_milestone_payload(action="demilestoned")

@@ -18,8 +18,11 @@ def handle(client: Github, config: Config, payload: dict) -> None:
     public_issue = payload["issue"]
 
     mapping = ensure_private_mapping(client, config, public_issue)
-    if mapping.was_bootstrapped:
-        # Bootstrap already applied the payload's milestone state.
+    if mapping.was_bootstrapped and action == "milestoned":
+        # Bootstrap already applied the payload's milestone. For
+        # `demilestoned`, fall through — bootstrap sees `issue.milestone=None`
+        # and skips assignment, so we need to explicitly clear it on the
+        # mirror to keep the contract symmetric with `milestoned`.
         return
 
     priv_repo = client.get_repo(config.private_repo)

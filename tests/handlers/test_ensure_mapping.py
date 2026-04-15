@@ -48,7 +48,7 @@ def test_returns_existing_mapping_without_creating(config, mock_client):
 def test_creates_private_issue_when_no_mapping(config, mock_client):
     """When neither mapping comment nor fallback body markers exist, create the mirror."""
     public_issue = make_public_issue_payload(title="Bug X", body="Body X")
-    _, mock_priv_repo, mock_pub_issue_obj, _ = setup_missing_mapping(config, mock_client)
+    mock_pub_repo, mock_priv_repo, mock_pub_issue_obj, _ = setup_missing_mapping(config, mock_client)
 
     result = ensure_private_mapping(mock_client, config, public_issue)
 
@@ -63,6 +63,10 @@ def test_creates_private_issue_when_no_mapping(config, mock_client):
     mock_pub_issue_obj.create_comment.assert_called_once()
     mapping_text = mock_pub_issue_obj.create_comment.call_args[0][0]
     assert "private_issue_number=99" in mapping_text
+
+    # pub_issue was fetched once (threaded through resolve_mapping) — the
+    # optimization that saves one HTTP call on the bootstrap path.
+    assert mock_pub_repo.get_issue.call_count == 1
 
 
 def test_bootstrap_mirrors_labels_type_and_milestone(config, mock_client):
