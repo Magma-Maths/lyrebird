@@ -19,10 +19,12 @@ def handle(client: Github, config: Config, payload: dict) -> None:
 
     mapping = ensure_private_mapping(client, config, public_issue)
     if mapping.was_bootstrapped and action == "milestoned":
-        # Bootstrap already applied the payload's milestone. For
-        # `demilestoned`, fall through — bootstrap sees `issue.milestone=None`
-        # and skips assignment, so we need to explicitly clear it on the
-        # mirror to keep the contract symmetric with `milestoned`.
+        # Bootstrap already applied the payload's milestone.
+        # `demilestoned` is not short-circuited: on the bootstrap path the
+        # fall-through is a no-op (a freshly created mirror has no milestone
+        # to clear), but the common non-bootstrap case has an existing mirror
+        # carrying a milestone from a prior `milestoned` event that must
+        # still be removed.
         return
 
     priv_repo = client.get_repo(config.private_repo)
