@@ -22,8 +22,11 @@ def handle(client: Github, config: Config, payload: dict) -> None:
         return
 
     mapping = ensure_private_mapping(client, config, public_issue)
-    if mapping.was_bootstrapped:
-        # Bootstrap already applied the payload's label set.
+    if mapping.was_bootstrapped and action == "labeled":
+        # Bootstrap created the mirror with the payload's label set, which for
+        # `labeled` events already includes the new label. Fall through for
+        # `unlabeled` because real webhooks deliver pre-action `issue.labels`
+        # (the removed label is still present) — we must explicitly remove it.
         return
 
     priv_repo = mapping.private_issue.repository

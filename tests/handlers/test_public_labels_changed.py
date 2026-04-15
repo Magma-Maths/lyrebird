@@ -150,3 +150,30 @@ def test_bootstraps_when_no_mapping(config, mock_client):
     # Bootstrap already applied the label set; handler short-circuits.
     mock_priv_issue.add_to_labels.assert_not_called()
     mock_priv_issue.remove_from_labels.assert_not_called()
+
+
+def test_unlabeled_bootstraps_then_removes(config, mock_client):
+    """Real `unlabeled` webhooks deliver pre-action `issue.labels` — the removed
+    label is still present. Bootstrap creates the mirror with the stale label,
+    then the handler must explicitly remove it."""
+    # Public payload: unlabel event fires, issue.labels still includes "bug"
+    # because real webhooks deliver pre-action state for unlabeled.
+    public_issue = make_public_issue_payload(
+        labels=[{"name": "bug", "color": "d73a4a", "description": ""}]
+    )
+    payload = {
+        "issue": public_issue,
+        "action": "unlabeled",
+        "label": {"name": "bug", "color": "d73a4a", "description": ""},
+    }
+
+    _, mock_priv_repo, _, mock_priv_issue = setup_missing_mapping(config, mock_client)
+
+    handle(mock_client, config, payload)
+
+    # Bootstrap created the mirror with the stale label.
+    mock_priv_repo.create_issue.assert_called_once()
+    create_kwargs = mock_priv_repo.create_issue.call_args.kwargs
+    assert "bug" in create_kwargs["labels"]
+    # Handler then explicitly removed it.
+    mock_priv_issue.remove_from_labels.assert_called_once_with("bug")

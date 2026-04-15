@@ -172,11 +172,14 @@ def test_close_bootstraps_when_no_mapping(config, mock_client):
 
     # Bootstrap happened
     mock_priv_repo.create_issue.assert_called_once()
-    # And the private issue was then closed (bootstrap can only create in open state)
+    # And the private issue was then closed with state_reason propagated
+    # (bootstrap can only create in open state, so close is always needed).
     edit_calls = mock_priv_issue.edit.call_args_list
     assert any(
-        c.kwargs.get("state") == "closed" for c in edit_calls
-    ), "private issue should have been closed after bootstrap"
+        c.kwargs.get("state") == "closed"
+        and c.kwargs.get("state_reason") == "completed"
+        for c in edit_calls
+    ), "private issue should have been closed with state_reason=completed"
 
 
 def test_reopen_by_non_reporter_no_reporter_note(config, mock_client):
