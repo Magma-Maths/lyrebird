@@ -28,8 +28,14 @@ def ensure_private_mapping(
     Bootstraps on demand because GitHub Actions' concurrency queue can silently
     drop `opened` events, so later events must be able to create the mirror.
     The returned PrivateMapping has `was_bootstrapped=True` when a new issue
-    was created here — callers can use this to skip mutations already applied
-    from the webhook payload's post-action state.
+    was created here. Callers can short-circuit on that flag only for the
+    "positive" side of an action pair — labeled, typed, milestoned, edited —
+    where the bootstrap's snapshot of `payload["issue"]` already captures the
+    intended final state. For "negative" actions (unlabeled, untyped,
+    demilestoned) and for `reopened`, callers must NOT short-circuit: either
+    the payload's `issue.*` fields may still reflect pre-action state (so
+    bootstrap cannot reliably reach the final state) or the action carries
+    side effects (audit comments, label cleanup) that must still fire.
     """
     pub_repo = client.get_repo(config.public_repo)
     pub_issue = pub_repo.get_issue(public_issue["number"])
