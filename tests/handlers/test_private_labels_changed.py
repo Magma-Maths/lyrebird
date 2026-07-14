@@ -85,6 +85,101 @@ def test_not_mirrored_skips(config, mock_client):
     # No error, just returns
 
 
+def _wire_priv_issue(mock_client, config, assignees):
+    """Wire mock_client so the private repo returns an issue with the given
+    assignees list.  Returns the mock private issue."""
+    mock_priv_repo = MagicMock()
+    mock_priv_issue = MagicMock()
+    mock_priv_issue.number = 10
+    mock_priv_issue.assignees = assignees
+    mock_priv_repo.get_issue.return_value = mock_priv_issue
+    # Public repo mock: label does not exist so mirroring is a no-op.
+    mock_pub_repo = MagicMock()
+    mock_pub_repo.get_label.side_effect = Exception("not found")
+
+    def get_repo(name):
+        if name == config.public_repo:
+            return mock_pub_repo
+        return mock_priv_repo
+
+    mock_client.get_repo.side_effect = get_repo
+    return mock_priv_issue
+
+
+def test_assigns_area_owner_when_unassigned(config, mock_client):
+    payload = {
+        "action": "labeled",
+        "issue": {"number": 10, "body": make_private_issue_body(), "state": "open"},
+        "label": {"name": "Lattices"},
+        "sender": {"login": "triager", "type": "User"},
+    }
+    priv_issue = _wire_priv_issue(mock_client, config, assignees=[])
+
+    handle(mock_client, config, payload)
+
+    priv_issue.add_to_assignees.assert_called_once_with("assaferan")
+
+
+def test_does_not_override_existing_assignee(config, mock_client):
+    existing = MagicMock()
+    existing.login = "someone"
+    payload = {
+        "action": "labeled",
+        "issue": {"number": 10, "body": make_private_issue_body(), "state": "open"},
+        "label": {"name": "Lattices"},
+        "sender": {"login": "triager", "type": "User"},
+    }
+    priv_issue = _wire_priv_issue(mock_client, config, assignees=[existing])
+
+    handle(mock_client, config, payload)
+
+    priv_issue.add_to_assignees.assert_not_called()
+
+
+def test_non_area_label_does_not_assign(config, mock_client):
+    payload = {
+        "action": "labeled",
+        "issue": {"number": 10, "body": make_private_issue_body(), "state": "open"},
+        "label": {"name": "impact:high"},
+        "sender": {"login": "triager", "type": "User"},
+    }
+    priv_issue = _wire_priv_issue(mock_client, config, assignees=[])
+
+    handle(mock_client, config, payload)
+
+    priv_issue.add_to_assignees.assert_not_called()
+
+
+def test_unlabeled_area_does_not_assign(config, mock_client):
+    payload = {
+        "action": "unlabeled",
+        "issue": {"number": 10, "body": make_private_issue_body(), "state": "open"},
+        "label": {"name": "Lattices"},
+        "sender": {"login": "triager", "type": "User"},
+    }
+    priv_issue = _wire_priv_issue(mock_client, config, assignees=[])
+
+    handle(mock_client, config, payload)
+
+    priv_issue.add_to_assignees.assert_not_called()
+
+
+def test_assigns_area_owner_on_non_mirrored_issue(config, mock_client):
+    """Native (non-mirrored) private issues still get an area owner even
+    though they have no public markers."""
+    payload = {
+        "action": "labeled",
+        "issue": {"number": 10, "body": "native issue, no markers", "state": "open"},
+        "label": {"name": "Algebras"},
+        "sender": {"login": "triager", "type": "User"},
+    }
+    priv_issue = _wire_priv_issue(mock_client, config, assignees=[])
+
+    handle(mock_client, config, payload)
+
+    priv_issue.add_to_assignees.assert_called_once_with("jvoight")
+
+
 def test_resolution_label_on_closed_posts_note_when_public_already_closed(config, mock_client):
     """When a resolution label is added to a closed private issue whose public is already closed,
     the resolution note should still be posted."""

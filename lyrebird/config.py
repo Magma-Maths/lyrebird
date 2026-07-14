@@ -42,6 +42,9 @@ class Config:
         default_factory=dict
     )
 
+    # area label name -> default assignee login (see AREA_ASSIGNEES env)
+    area_assignees: dict[str, str] = field(default_factory=dict)
+
     mapping_comment_template: str = (
         "Thanks for the report! Our team is tracking this and will post updates here."
     )
@@ -86,6 +89,10 @@ class Config:
                 return key
         return None
 
+    def assignee_for_area(self, label_name: str) -> str | None:
+        """Return the default assignee login for an area label, or None."""
+        return self.area_assignees.get(label_name)
+
 
 def _build_resolution_labels(
     raw: str | None,
@@ -117,6 +124,24 @@ def _build_resolution_labels(
     return result
 
 
+def _build_area_assignees(raw: str | None) -> dict[str, str]:
+    """Parse AREA_ASSIGNEES JSON into an area-label -> assignee-login map.
+
+    Expected JSON format (an object mapping area label names to a single
+    GitHub login):
+    {
+        "Lattices": "assaferan",
+        "Algebras": "jvoight",
+        ...
+    }
+    Missing or empty means no auto-assignment happens.
+    """
+    if not raw:
+        return {}
+    data = json.loads(raw)
+    return {str(k): str(v) for k, v in data.items()}
+
+
 def load_config() -> Config:
     """Build Config from environment variables."""
     return Config(
@@ -126,6 +151,7 @@ def load_config() -> Config:
         resolution_labels=_build_resolution_labels(
             os.environ.get("RESOLUTION_LABELS")
         ),
+        area_assignees=_build_area_assignees(os.environ.get("AREA_ASSIGNEES")),
         mapping_comment_template=os.environ.get(
             "MAPPING_COMMENT_TEMPLATE",
             "Thanks for the report! Our team is tracking this and will post updates here.",
