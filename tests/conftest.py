@@ -30,6 +30,10 @@ def config():
             ),
             "custom": ("resolution:custom", "", None),
         },
+        area_assignees={
+            "Lattices": "assaferan",
+            "Algebras": "jvoight",
+        },
     )
 
 

@@ -11,6 +11,7 @@ When someone opens, edits, or comments on a public issue, Lyrebird mirrors every
 - Public comments &rarr; mirrored to private (edits update in-place, deletes become tombstones)
 - Public labels &rarr; mirrored to private, auto-creating missing labels
 - Public close/reopen &rarr; private issue state synced (closed/reopened) with an audit comment
+- Area label added to an **unassigned** private issue &rarr; the area's default owner is auto-assigned (see below)
 
 ## Slash commands
 
@@ -59,6 +60,30 @@ These are set explicitly in the workflow templates (`RESOLUTION_LABELS` in the `
   "custom":           {"label": "resolution:custom",           "note": "",              "state_reason": null}
 }
 ```
+
+## Area auto-assignment
+
+When an **area label** (e.g. `Lattices`, `Algebras`) is added to a private
+issue that has **no assignee**, Lyrebird assigns that area's default owner. It
+never overrides an existing assignment, so the owner is free to reassign
+afterwards, and applies to every private issue — both mirrored and native.
+
+The area &rarr; owner map is the `AREA_ASSIGNEES` JSON in the `env:` block of
+`handle-private-issue.yml` (same mechanism as `RESOLUTION_LABELS`):
+
+```json
+{
+  "Lattices": "assaferan",
+  "Algebras": "jvoight"
+}
+```
+
+Keys are area label names; values are single GitHub logins. A label that isn't
+a key (or an issue that's already assigned) triggers no assignment.
+
+The human source of truth is the **"Area coverage" spreadsheet**; this map is
+kept in sync **by hand** when the spreadsheet changes. Areas the spreadsheet
+leaves without an owner are simply omitted from the map.
 
 ## Setup
 
