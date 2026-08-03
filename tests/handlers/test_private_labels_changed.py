@@ -85,13 +85,14 @@ def test_not_mirrored_skips(config, mock_client):
     # No error, just returns
 
 
-def _wire_priv_issue(mock_client, config, assignees):
+def _wire_priv_issue(mock_client, config, assignees, state="open"):
     """Wire mock_client so the private repo returns an issue with the given
-    assignees list.  Returns the mock private issue."""
+    assignees list and state.  Returns the mock private issue."""
     mock_priv_repo = MagicMock()
     mock_priv_issue = MagicMock()
     mock_priv_issue.number = 10
     mock_priv_issue.assignees = assignees
+    mock_priv_issue.state = state
     mock_priv_repo.get_issue.return_value = mock_priv_issue
     # Public repo mock: label does not exist so mirroring is a no-op.
     mock_pub_repo = MagicMock()
@@ -178,6 +179,77 @@ def test_assigns_area_owner_on_non_mirrored_issue(config, mock_client):
     handle(mock_client, config, payload)
 
     priv_issue.add_to_assignees.assert_called_once_with("jvoight")
+
+
+def test_closed_issue_does_not_get_area_owner(config, mock_client):
+    """A label landing on a closed private issue gets no area owner."""
+    payload = {
+        "action": "labeled",
+        "issue": {"number": 10, "body": make_private_issue_body(), "state": "closed"},
+        "label": {"name": "Lattices"},
+        "sender": {"login": "triager", "type": "User"},
+    }
+    priv_issue = _wire_priv_issue(mock_client, config, assignees=[], state="closed")
+
+    handle(mock_client, config, payload)
+
+    priv_issue.add_to_assignees.assert_not_called()
+
+
+def _wire_mirroring_repos(mock_client, config):
+    """Wire mock_client so the public label exists and mirroring proceeds.
+    Returns (mock_pub_repo, mock_priv_repo, mock_pub_issue)."""
+    mock_pub_repo = MagicMock()
+    mock_priv_repo = MagicMock()
+    mock_pub_issue = MagicMock()
+    mock_pub_repo.get_issue.return_value = mock_pub_issue
+    mock_pub_repo.get_label.return_value = MagicMock()
+
+    def get_repo(name):
+        if name == config.public_repo:
+            return mock_pub_repo
+        return mock_priv_repo
+
+    mock_client.get_repo.side_effect = get_repo
+    return mock_pub_repo, mock_priv_repo, mock_pub_issue
+
+
+def test_assignment_fetch_failure_does_not_abort_label_mirroring(config, mock_client):
+    """A transient failure fetching the private issue must not stop the label
+    from reaching the public issue."""
+    payload = {
+        "action": "labeled",
+        "issue": {"number": 10, "body": make_private_issue_body(), "state": "open"},
+        "label": {"name": "Lattices"},
+        "sender": {"login": "triager", "type": "User"},
+    }
+    _, mock_priv_repo, mock_pub_issue = _wire_mirroring_repos(mock_client, config)
+    mock_priv_repo.get_issue.side_effect = RuntimeError("502 Bad Gateway")
+
+    handle(mock_client, config, payload)
+
+    mock_pub_issue.add_to_labels.assert_called_once_with("Lattices")
+
+
+def test_assign_api_failure_does_not_abort_label_mirroring(config, mock_client):
+    """A failing assignment POST must not stop the label mirroring either."""
+    payload = {
+        "action": "labeled",
+        "issue": {"number": 10, "body": make_private_issue_body(), "state": "open"},
+        "label": {"name": "Lattices"},
+        "sender": {"login": "triager", "type": "User"},
+    }
+    _, mock_priv_repo, mock_pub_issue = _wire_mirroring_repos(mock_client, config)
+    mock_priv_issue = MagicMock()
+    mock_priv_issue.number = 10
+    mock_priv_issue.state = "open"
+    mock_priv_issue.assignees = []
+    mock_priv_issue.add_to_assignees.side_effect = RuntimeError("500 Server Error")
+    mock_priv_repo.get_issue.return_value = mock_priv_issue
+
+    handle(mock_client, config, payload)
+
+    mock_pub_issue.add_to_labels.assert_called_once_with("Lattices")
 
 
 def test_resolution_label_on_closed_posts_note_when_public_already_closed(config, mock_client):

@@ -33,8 +33,10 @@ def assign_area_owner(
 ) -> str | None:
     """Assign the area owner for the first mapped label in *label_names*.
 
-    Never overrides an existing assignment.  Returns the login assigned, or
-    None when nothing was assigned.
+    Only open issues with no assignee are touched, so an existing assignment is
+    never overridden.  Returns the login assigned, or None when nothing was
+    assigned.  Every failure is contained here: callers must not add a second
+    try/except of their own.
     """
     match = _first_mapped_area(config, label_names)
     if match is None:
@@ -42,14 +44,21 @@ def assign_area_owner(
         return None
     label_name, login = match
 
-    if priv_issue.assignees:
-        logger.info(
-            "Private #%s already assigned; leaving area owner untouched",
-            priv_issue.number,
-        )
-        return None
-
     try:
+        if priv_issue.state != "open":
+            logger.info(
+                "Private #%s is %s; skipping area assignment for '%s'",
+                priv_issue.number,
+                priv_issue.state,
+                label_name,
+            )
+            return None
+        if priv_issue.assignees:
+            logger.info(
+                "Private #%s already assigned; leaving area owner untouched",
+                priv_issue.number,
+            )
+            return None
         priv_issue.add_to_assignees(login)
         logger.info(
             "Assigned '%s' to private #%s for area label '%s'",
@@ -61,7 +70,7 @@ def assign_area_owner(
         logger.exception(
             "Failed to assign '%s' to private #%s for area label '%s'",
             login,
-            priv_issue.number,
+            getattr(priv_issue, "number", "?"),
             label_name,
         )
         return None
@@ -75,10 +84,17 @@ def assign_area_owner_by_number(
 
     For callers that hold only a webhook payload dict, or whose issue object
     may be stale.  The mapped-label check runs first so a label with no owner
-    costs no API call.
+    costs no API call, and the fetch is guarded so a transient API failure
+    cannot abort the caller.
     """
     if _first_mapped_area(config, label_names) is None:
         return None
-    priv_repo = client.get_repo(config.private_repo)
-    priv_issue = priv_repo.get_issue(issue_number)
+    try:
+        priv_repo = client.get_repo(config.private_repo)
+        priv_issue = priv_repo.get_issue(issue_number)
+    except Exception:
+        logger.exception(
+            "Could not fetch private #%s for area assignment", issue_number
+        )
+        return None
     return assign_area_owner(config, priv_issue, label_names)
