@@ -11,7 +11,7 @@ When someone opens, edits, or comments on a public issue, Lyrebird mirrors every
 - Public comments &rarr; mirrored to private (edits update in-place, deletes become tombstones)
 - Public labels &rarr; mirrored to private, auto-creating missing labels
 - Public close/reopen &rarr; private issue state synced (closed/reopened) with an audit comment
-- Area label added to an **unassigned** private issue &rarr; the area's default owner is auto-assigned (see below)
+- Area label added on either repo &rarr; if the private issue is open and unassigned, the area's default owner is assigned (see below)
 
 ## Slash commands
 
@@ -63,13 +63,27 @@ These are set explicitly in the workflow templates (`RESOLUTION_LABELS` in the `
 
 ## Area auto-assignment
 
-When an **area label** (e.g. `Lattices`, `Algebras`) is added to a private
+When an **area label** (e.g. `Lattices`, `Algebras`) lands on an **open** private
 issue that has **no assignee**, Lyrebird assigns that area's default owner. It
 never overrides an existing assignment, so the owner is free to reassign
-afterwards, and applies to every private issue — both mirrored and native.
+afterwards.
+
+Lyrebird ignores events sent by its own App identity, so labels the bot applies
+never come back as events. The assignment therefore runs inline at every site
+that writes an area label onto a private issue:
+
+- an area label added by hand on a private issue
+- an area label added on the public tracker and mirrored to private
+- a private mirror created on demand for a public issue that already carries an
+  area label
+- a private mirror created by the daily `lyrebird sync` reconciliation
+
+The daily reconciler does not assign owners when it adds a missing label to an
+existing mirror.
 
 The area &rarr; owner map is the `AREA_ASSIGNEES` JSON in the `env:` block of
-`handle-private-issue.yml` (same mechanism as `RESOLUTION_LABELS`):
+`handle-private-issue.yml`, `handle-public-event.yml`, and `sync.yml` (keep the
+three copies identical; same mechanism as `RESOLUTION_LABELS`):
 
 ```json
 {
@@ -81,9 +95,8 @@ The area &rarr; owner map is the `AREA_ASSIGNEES` JSON in the `env:` block of
 Keys are area label names; values are single GitHub logins. A label that isn't
 a key (or an issue that's already assigned) triggers no assignment.
 
-The human source of truth is the **"Area coverage" spreadsheet**; this map is
-kept in sync **by hand** when the spreadsheet changes. Areas the spreadsheet
-leaves without an owner are simply omitted from the map.
+Keep the map in sync with whatever owner list you maintain. Areas with no owner
+are simply omitted.
 
 ## Setup
 

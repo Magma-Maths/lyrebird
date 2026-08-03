@@ -1,6 +1,6 @@
 # Lyrebird Flow Reference
 
-Every flow Lyrebird implements, shown as Mermaid diagrams. All events from the bot itself are silently ignored (loop prevention).
+The flows Lyrebird implements for issue and comment events, shown as Mermaid diagrams. All events from the bot itself are silently ignored (loop prevention), which is why anything Lyrebird writes is handled inline at the write site rather than by a follow-up event. The daily reconciliation run (`lyrebird sync`) is not diagrammed here; see README.md.
 
 ---
 
@@ -38,6 +38,8 @@ flowchart TD
     E -- Yes --> F["Mirror type<br/>to private"]
     E -- No --> G["Post mapping comment<br/>on public issue"]
     F --> G
+    G --> H{"Mapped area label<br/>in the mirrored set?"}
+    H -- Yes --> I["Assign the area's<br/>default owner"]
 ```
 
 ### Public Issue Edited
@@ -118,6 +120,8 @@ flowchart TD
     B -- Yes --> C{"Action?"}
     C -- labeled --> D["Ensure label exists<br/>in private repo<br/>(auto-create if missing)"]
     D --> E["Add label to<br/>private issue"]
+    E --> EA{"Mapped area label,<br/>private issue open<br/>and unassigned?"}
+    EA -- Yes --> EB["Assign the area's<br/>default owner"]
     C -- unlabeled --> F["Remove label from<br/>private issue"]
 ```
 
@@ -187,7 +191,12 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A["Private label<br/>added or removed"] --> B{"Mirrored issue?"}
+    A["Private label<br/>added or removed"] --> AA{"labeled with a<br/>mapped area label?"}
+    AA -- Yes --> AB{"Issue open with<br/>no assignee?"}
+    AB -- Yes --> AC["Assign the area's<br/>default owner"]
+    AA -- No --> B{"Mirrored issue?"}
+    AB -- No --> B
+    AC --> B
     B -- No --> Z["Do nothing"]
     B -- Yes --> C{"Label exists on<br/>public repo?"}
     C -- No --> Z2["Skip — private-only<br/>label"]

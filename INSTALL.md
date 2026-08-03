@@ -113,5 +113,6 @@ These environment variables can be set in the workflow files to customize behavi
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `RESOLUTION_LABELS` | *(see README)* | JSON mapping of resolution keys to labels/notes |
+| `AREA_ASSIGNEES` | *(unset)* | JSON mapping area label names to the GitHub login assigned when that label lands on an open, unassigned private issue. Set the same value in `handle-private-issue.yml`, `handle-public-event.yml`, and `sync.yml`. |
 | `MAPPING_COMMENT_TEMPLATE` | `Thanks for the report! Our team is tracking this and will post updates here.` | Template for the public mapping comment |
 | `NEEDS_RESOLUTION_LABEL` | `resolution:none` | Label applied when private is closed without a resolution |

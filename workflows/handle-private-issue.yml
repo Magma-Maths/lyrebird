@@ -25,39 +25,15 @@ env:
       "cannot-reproduce": {"label": "resolution:cannot-reproduce", "note": "We could not reproduce this with the information available. If you can share steps/logs, we can reopen.",      "state_reason": "not_planned"},
       "custom":           {"label": "resolution:custom",           "note": "",                                                                                                            "state_reason": null}
     }
-  # Area coverage: maps each area label → its default assignee login.  When
-  # an area label is added to a private issue that has no assignee yet, the
-  # bot assigns that person; existing assignments are never overridden.
-  # Source of truth is the "Area coverage" spreadsheet — keep this in sync by
-  # hand when it changes.  Areas with no owner in the sheet are intentionally
-  # omitted (Calculator, Groebner Bases, Invariant Theory, Noncommutative
-  # Algebra) — no label there means no auto-assignment.
+  # Area coverage: maps each area label to the login assigned when that label
+  # lands on an open private issue that has no assignee yet. Existing
+  # assignments are never overridden. Areas with no owner are simply omitted,
+  # which means no auto-assignment for them. Keep this value identical in
+  # handle-public-event.yml and sync.yml.
   AREA_ASSIGNEES: >-
     {
-      "Language":                    "GeoffBailey",
-      "Aggregates":                  "GeoffBailey",
-      "Rings":                       "GeoffBailey",
-      "Linear Algebra":              "AllanKSteel",
-      "Modules":                     "AllanKSteel",
-      "Commutative Algebra":         "AllanKSteel",
-      "Lattices":                    "assaferan",
-      "Quadratic Forms":             "assaferan",
-      "Modular Arithmetic Geometry": "assaferan",
-      "Global Fields":               "NicoleSutherland",
-      "Local Fields":                "NicoleSutherland",
-      "Finite Groups":               "Bill-Unger",
-      "Finitely-presented Groups":   "Bill-Unger",
-      "Representation Theory":        "Bill-Unger",
-      "Algebras":                    "jvoight",
-      "Lie Theory":                  "rolyat",
-      "Algebraic Geometry":          "StephanElsenhans",
-      "Arithmetic Geometry":         "StephanElsenhans",
-      "Topology":                    "ReymondAkpanya",
-      "Geometry":                    "ReymondAkpanya",
-      "Combinatorics":               "rhysje00",
-      "Coding Theory":               "edgarcosta",
-      "Cryptography":                "edgarcosta",
-      "Optimization":                "edgarcosta"
+      "Lattices": "assaferan",
+      "Algebras": "jvoight"
     }
 
 jobs:
