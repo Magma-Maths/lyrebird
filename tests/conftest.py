@@ -62,6 +62,7 @@ def make_mock_issue(
     issue.title = title
     issue.body = body
     issue.state = state
+    issue.assignees = []
     issue.html_url = html_url or f"https://github.com/testorg/repo/issues/{number}"
 
     label_mocks = []
