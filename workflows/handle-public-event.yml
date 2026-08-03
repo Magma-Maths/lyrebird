@@ -46,6 +46,16 @@ env:
       "cannot-reproduce": {"label": "resolution:cannot-reproduce", "note": "We could not reproduce this with the information available. If you can share steps/logs, we can reopen.",      "state_reason": "not_planned"},
       "custom":           {"label": "resolution:custom",           "note": "",                                                                                                            "state_reason": null}
     }
+  # Area coverage: maps each area label to the login assigned when that label
+  # lands on an open private issue that has no assignee yet. Existing
+  # assignments are never overridden. Areas with no owner are simply omitted,
+  # which means no auto-assignment for them. Keep this value identical in
+  # handle-private-issue.yml and sync.yml.
+  AREA_ASSIGNEES: >-
+    {
+      "Lattices": "assaferan",
+      "Algebras": "jvoight"
+    }
 
 jobs:
   handle:
