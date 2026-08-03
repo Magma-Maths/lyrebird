@@ -74,6 +74,13 @@ Copy these workflow files into `.github/workflows/` in the respective repos:
 - `workflows/handle-public-event.yml`
 - `workflows/handle-private-issue.yml`
 - `workflows/handle-private-comment.yml`
+- `workflows/sync.yml`
+
+`sync.yml` is the scheduled reconciliation. It runs `lyrebird sync` daily, and
+on demand from the Actions tab, to catch public issues whose events were dropped
+by a runner failure: it creates any missing private mirror, assigns that
+mirror's area owner, and adds missing labels to existing mirrors. Skip it and
+a dropped event is only repaired if that issue happens to see another event.
 
 ### Repository variables
 
