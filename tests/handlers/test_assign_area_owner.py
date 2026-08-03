@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, PropertyMock
 
 from lyrebird.handlers._assign_area_owner import (
     assign_area_owner,
@@ -51,3 +51,56 @@ def test_refetch_failure_is_logged_and_swallowed(config, mock_client, caplog):
 
     assert assign_area_owner_by_number(mock_client, config, 10, ["Lattices"]) is None
     assert "Could not fetch private #10" in caplog.text
+
+
+def _exploding_config(exc: Exception):
+    """Config stand-in whose area lookup raises."""
+    broken = MagicMock()
+    broken.assignee_for_area.side_effect = exc
+    broken.private_repo = "testorg/private-repo"
+    return broken
+
+
+def test_area_lookup_failure_is_contained(caplog):
+    priv_issue = _priv_issue()
+
+    result = assign_area_owner(
+        _exploding_config(RuntimeError("bad map")), priv_issue, ["Lattices"]
+    )
+
+    assert result is None
+    priv_issue.add_to_assignees.assert_not_called()
+    assert "Failed to assign" in caplog.text
+
+
+def test_area_lookup_failure_is_contained_by_number(mock_client, caplog):
+    result = assign_area_owner_by_number(
+        mock_client, _exploding_config(RuntimeError("bad map")), 10, ["Lattices"]
+    )
+
+    assert result is None
+    mock_client.get_repo.assert_not_called()
+    assert "Could not fetch private #10" in caplog.text
+
+
+def test_failing_number_read_in_error_path_is_contained(config, caplog):
+    # A transient API error on one lazily completed attribute makes every other
+    # attribute fail the same way, including the one the error log wants.
+    priv_issue = MagicMock()
+    type(priv_issue).state = PropertyMock(side_effect=RuntimeError("502 Bad Gateway"))
+    type(priv_issue).number = PropertyMock(side_effect=RuntimeError("502 Bad Gateway"))
+
+    assert assign_area_owner(config, priv_issue, ["Lattices"]) is None
+    assert "Failed to assign 'assaferan' to private #?" in caplog.text
+
+
+def test_one_shot_label_iterable_is_assigned(config, mock_client):
+    priv_issue = _priv_issue()
+    mock_priv_repo = MagicMock()
+    mock_priv_repo.get_issue.return_value = priv_issue
+    mock_client.get_repo.return_value = mock_priv_repo
+
+    label_names = (name for name in ["Lattices"])
+
+    assert assign_area_owner_by_number(mock_client, config, 10, label_names) == "assaferan"
+    priv_issue.add_to_assignees.assert_called_once_with("assaferan")
