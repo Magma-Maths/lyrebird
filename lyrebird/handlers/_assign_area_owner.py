@@ -28,6 +28,19 @@ def _first_mapped_area(
     return None
 
 
+def _safe_number(priv_issue) -> int | str:
+    """Return the issue number for log messages, or '?' when reading it fails.
+
+    The error path cannot re-read `.number`: the transient API failure that put
+    us there completes every other attribute the same way, and `getattr`'s
+    default only covers AttributeError.
+    """
+    try:
+        return priv_issue.number
+    except Exception:
+        return "?"
+
+
 def assign_area_owner(
     config: Config, priv_issue, label_names: Iterable[str]
 ) -> str | None:
@@ -36,19 +49,27 @@ def assign_area_owner(
     Only open issues with no assignee are touched, so an existing assignment is
     never overridden.  Returns the login assigned, or None when nothing was
     assigned.  Every failure is contained here: callers must not add a second
-    try/except of their own.
+    try/except of their own.  *label_names* is scanned once, so a one-shot
+    iterable is fine.
     """
-    match = _first_mapped_area(config, label_names)
-    if match is None:
-        # No area label (or no owner configured); nothing to do.
-        return None
-    label_name, login = match
+    label_name = "?"
+    login = "?"
+    issue_id: int | str = "?"
 
     try:
+        match = _first_mapped_area(config, label_names)
+        if match is None:
+            # No area label (or no owner configured); nothing to do.
+            return None
+        label_name, login = match
+        # Read the number only once a mapped label is in hand, so an unmapped
+        # label still costs no API call on a lazily completed issue.
+        issue_id = _safe_number(priv_issue)
+
         if priv_issue.state != "open":
             logger.info(
                 "Private #%s is %s; skipping area assignment for '%s'",
-                priv_issue.number,
+                issue_id,
                 priv_issue.state,
                 label_name,
             )
@@ -56,21 +77,21 @@ def assign_area_owner(
         if priv_issue.assignees:
             logger.info(
                 "Private #%s already assigned; leaving area owner untouched",
-                priv_issue.number,
+                issue_id,
             )
             return None
         priv_issue.add_to_assignees(login)
         logger.info(
             "Assigned '%s' to private #%s for area label '%s'",
             login,
-            priv_issue.number,
+            issue_id,
             label_name,
         )
     except Exception:
         logger.exception(
             "Failed to assign '%s' to private #%s for area label '%s'",
             login,
-            getattr(priv_issue, "number", "?"),
+            issue_id,
             label_name,
         )
         return None
@@ -84,12 +105,15 @@ def assign_area_owner_by_number(
 
     For callers that hold only a webhook payload dict, or whose issue object
     may be stale.  The mapped-label check runs first so a label with no owner
-    costs no API call, and the fetch is guarded so a transient API failure
-    cannot abort the caller.
+    costs no API call, and it runs on a materialised copy so a one-shot
+    iterable survives the second scan the delegate makes.  Neither the check
+    nor the fetch can abort the caller, and the delegate contains its own
+    failures.
     """
-    if _first_mapped_area(config, label_names) is None:
-        return None
     try:
+        names = list(label_names)
+        if _first_mapped_area(config, names) is None:
+            return None
         priv_repo = client.get_repo(config.private_repo)
         priv_issue = priv_repo.get_issue(issue_number)
     except Exception:
@@ -97,4 +121,4 @@ def assign_area_owner_by_number(
             "Could not fetch private #%s for area assignment", issue_number
         )
         return None
-    return assign_area_owner(config, priv_issue, label_names)
+    return assign_area_owner(config, priv_issue, names)
