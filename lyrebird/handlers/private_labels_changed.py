@@ -7,6 +7,7 @@ import logging
 from github import Github
 
 from lyrebird.config import Config
+from lyrebird.handlers._assign_area_owner import assign_area_owner_by_number
 from lyrebird.mapping import parse_private_body_markers, public_number_from_url
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ def handle(client: Github, config: Config, payload: dict) -> None:
     # nobody is assigned yet.  This applies to every private issue (native or
     # mirrored), so it runs before the mirror-marker gate below.
     if action == "labeled":
-        _maybe_assign_area_owner(client, config, issue, label_name)
+        assign_area_owner_by_number(client, config, issue["number"], [label_name])
 
     issue_body = issue.get("body") or ""
     markers = parse_private_body_markers(issue_body)
@@ -71,44 +72,6 @@ def handle(client: Github, config: Config, payload: dict) -> None:
             )
         except Exception:
             pass
-
-
-def _maybe_assign_area_owner(
-    client: Github, config: Config, issue: dict, label_name: str
-) -> None:
-    """Assign the area's default owner if the label is an area and the issue
-    has no assignee yet.  Never overrides an existing assignment."""
-    assignee = config.assignee_for_area(label_name)
-    if not assignee:
-        # Not an area label (or no owner configured); nothing to do.
-        return
-
-    # Fetch the live issue so the assignee check reflects the current state
-    # (labels can arrive back-to-back; the payload snapshot may be stale).
-    priv_repo = client.get_repo(config.private_repo)
-    priv_issue = priv_repo.get_issue(issue["number"])
-    if priv_issue.assignees:
-        logger.info(
-            "Private #%d already assigned; leaving area owner untouched",
-            issue["number"],
-        )
-        return
-
-    try:
-        priv_issue.add_to_assignees(assignee)
-        logger.info(
-            "Assigned '%s' to private #%d for area label '%s'",
-            assignee,
-            issue["number"],
-            label_name,
-        )
-    except Exception:
-        logger.exception(
-            "Failed to assign '%s' to private #%d for area label '%s'",
-            assignee,
-            issue["number"],
-            label_name,
-        )
 
 
 def _maybe_close_public_on_label(
