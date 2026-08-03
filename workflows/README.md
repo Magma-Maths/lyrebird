@@ -28,10 +28,11 @@ Copy `public-dispatch.yml` to `.github/workflows/public-dispatch.yml`.
 
 ### Private repo
 
-Copy all three files to `.github/workflows/`:
+Copy all four files to `.github/workflows/`:
 - `handle-public-event.yml`
 - `handle-private-issue.yml`
 - `handle-private-comment.yml`
+- `sync.yml`
 
 ## How it works
 
@@ -39,6 +40,7 @@ Copy all three files to `.github/workflows/`:
 2. `public-dispatch.yml` forwards the event to the private repo via `repository_dispatch`.
 3. `handle-public-event.yml` picks up the dispatch, installs lyrebird, and runs the appropriate handler.
 4. For private-side events (close, reopen, label changes, slash commands), `handle-private-issue.yml` and `handle-private-comment.yml` run directly.
+5. `sync.yml` runs `lyrebird sync` on a daily schedule, and on demand from the Actions tab, to reconcile whatever the event path dropped: it creates missing private mirrors, assigns their area owners, and adds missing labels to existing mirrors.
 
 ## Concurrency
 
