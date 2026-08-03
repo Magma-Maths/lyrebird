@@ -75,6 +75,7 @@ def _make_priv_issue(
     issue.title = title
     issue.body = body
     issue.state = state
+    issue.assignees = []
     issue.pull_request = None
 
     label_mocks = []
@@ -154,6 +155,60 @@ class TestCreatesMissingPrivateIssue:
         assert stats.created == 1
         assert stats.state_updated == 1
         priv_issue.edit.assert_any_call(state="closed", state_reason="completed")
+
+
+class TestAssignsAreaOwnerOnNewMirror:
+    def test_assigns_area_owner_on_new_mirror(self, config, mock_client):
+        """A mirror created by the reconciler carries the area label, so it is
+        the reconciler that has to assign the owner."""
+        pub_issue = _make_pub_issue(labels=[{"name": "Lattices", "color": "d73a4a"}])
+        priv_issue = _make_priv_issue()
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
+        pub_repo.get_issue.return_value = pub_issue
+        priv_repo.create_issue.return_value = priv_issue
+        pub_issue.get_comments.return_value = []
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        assert stats.created == 1
+        priv_issue.add_to_assignees.assert_called_once_with("assaferan")
+
+    def test_does_not_assign_when_public_issue_is_closed(self, config, mock_client):
+        """The new mirror is closed right after creation, so it gets no owner."""
+        pub_issue = _make_pub_issue(
+            state="closed",
+            state_reason="completed",
+            labels=[{"name": "Lattices", "color": "d73a4a"}],
+        )
+        priv_issue = _make_priv_issue()
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
+        pub_repo.get_issue.return_value = pub_issue
+        priv_repo.create_issue.return_value = priv_issue
+        pub_issue.get_comments.return_value = []
+
+        stats = sync(mock_client, config, since_hours=None)
+
+        assert stats.created == 1
+        priv_issue.add_to_assignees.assert_not_called()
+
+    def test_sync_labels_does_not_assign_on_existing_mirror(self, config, mock_client):
+        """Daily label reconciliation on an old mirror never assigns."""
+        priv_issue = _make_priv_issue(labels=[])
+        mapping_comment = make_mock_comment(body=MAPPING_BODY)
+
+        pub_issue = _make_pub_issue(labels=[{"name": "Lattices", "color": "d73a4a"}])
+        pub_issue.get_comments.return_value = [mapping_comment]
+
+        pub_repo, priv_repo = _setup_repos(config, mock_client, [pub_issue])
+        pub_repo.get_issue.return_value = pub_issue
+        priv_repo.get_issue.return_value = priv_issue
+
+        sync(mock_client, config, since_hours=None)
+
+        priv_issue.add_to_labels.assert_called_once_with("Lattices")
+        priv_issue.add_to_assignees.assert_not_called()
 
 
 class TestSkipsAlreadyMirroredIssue:
