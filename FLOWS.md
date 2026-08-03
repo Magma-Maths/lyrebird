@@ -34,12 +34,13 @@ flowchart TD
     B -- "Yes (self-healed)" --> Z
     B -- No --> C["Create private issue<br/>[public #N] title"]
     C --> D["Mirror labels<br/>(auto-create missing)"]
-    D --> E{"Issue type<br/>set? (Bug/Task/...)"}
+    D --> H{"Mapped area label<br/>in the mirrored set?"}
+    H -- Yes --> I["Assign the area's<br/>default owner"]
+    H -- No --> E{"Issue type<br/>set? (Bug/Task/...)"}
+    I --> E
     E -- Yes --> F["Mirror type<br/>to private"]
     E -- No --> G["Post mapping comment<br/>on public issue"]
     F --> G
-    G --> H{"Mapped area label<br/>in the mirrored set?"}
-    H -- Yes --> I["Assign the area's<br/>default owner"]
 ```
 
 ### Public Issue Edited
@@ -47,7 +48,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     A["Public issue edited"] --> B{"Mapping exists?"}
-    B -- No --> Z["Skip"]
+    B -- No --> Z["Bootstrap mirror from the<br/>edited payload, then stop<br/>(see Public Issue Opened)"]
     B -- Yes --> C["Update private title<br/>→ [public #N] new title"]
     C --> D["Update private body<br/>(between BEGIN/END markers)"]
 ```
@@ -57,7 +58,8 @@ flowchart TD
 ```mermaid
 flowchart TD
     A["Public issue closed"] --> B{"Mapping exists?"}
-    B -- No --> Z["Skip"]
+    B -- No --> BA["Bootstrap mirror, unassigned<br/>because the public issue is closed<br/>(see Public Issue Opened)"]
+    BA --> C
     B -- Yes --> C["Post audit comment on private:<br/>'Public issue closed by @user'"]
     C --> D{"Closed by original<br/>reporter?"}
     D -- Yes --> E["Append '(original reporter)'<br/>to audit comment"]
@@ -73,7 +75,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     A["Public issue reopened"] --> B{"Mapping exists?"}
-    B -- No --> Z["Skip"]
+    B -- No --> Z["Bootstrap mirror in the open<br/>state, then stop<br/>(see Public Issue Opened)"]
     B -- Yes --> C["Remove all resolution:*<br/>and resolution:none labels<br/>from private"]
     C --> D["Post audit comment:<br/>'Public issue reopened by @user'"]
     D --> E["Reopen private issue"]
@@ -84,7 +86,8 @@ flowchart TD
 ```mermaid
 flowchart TD
     A["Public comment created"] --> B{"Mapping exists?"}
-    B -- No --> Z["Skip"]
+    B -- No --> BA["Bootstrap mirror<br/>(see Public Issue Opened)"]
+    BA --> C
     B -- Yes --> C["Build mirrored comment body<br/>(@author | permalink<br/>+ original text)"]
     C --> D["Post mirrored comment<br/>on private issue"]
 ```
@@ -116,7 +119,10 @@ flowchart TD
 ```mermaid
 flowchart TD
     A["Public label<br/>added or removed"] --> B{"Mapping exists?"}
-    B -- No --> Z["Skip"]
+    B -- No --> BA["Bootstrap mirror with the<br/>payload's labels<br/>(see Public Issue Opened)"]
+    BA --> BB{"Action?"}
+    BB -- labeled --> Z["Stop: the bootstrap already<br/>mirrored the label and<br/>ran the assignment"]
+    BB -- unlabeled --> F
     B -- Yes --> C{"Action?"}
     C -- labeled --> D["Ensure label exists<br/>in private repo<br/>(auto-create if missing)"]
     D --> E["Add label to<br/>private issue"]
@@ -130,7 +136,10 @@ flowchart TD
 ```mermaid
 flowchart TD
     A["Public issue type<br/>changed or removed"] --> B{"Mapping exists?"}
-    B -- No --> Z["Skip"]
+    B -- No --> BA["Bootstrap mirror<br/>(see Public Issue Opened)"]
+    BA --> BB{"Action?"}
+    BB -- typed --> Z["Stop: the bootstrap<br/>already set the type"]
+    BB -- untyped --> C
     B -- Yes --> C["Set same issue type<br/>on private issue<br/>(Bug/Task/Feature/none)"]
 ```
 
