@@ -7,6 +7,7 @@ import logging
 from github import Github
 
 from lyrebird.config import Config
+from lyrebird.handlers._assign_area_owner import assign_area_owner_by_number
 from lyrebird.handlers._ensure_mapping import ensure_label, ensure_private_mapping
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,11 @@ def handle(client: Github, config: Config, payload: dict) -> None:
             "Added label '%s' to private #%d",
             label_name,
             mapping.private_issue_number,
+        )
+        # add_to_labels does not refresh the issue's attributes, so refetch
+        # rather than reading assignees off the object resolve_mapping returned.
+        assign_area_owner_by_number(
+            client, config, mapping.private_issue_number, [label_name]
         )
     elif action == "unlabeled":
         try:
