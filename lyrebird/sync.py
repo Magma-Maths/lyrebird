@@ -14,6 +14,7 @@ from github import Github
 from github.Repository import Repository
 
 from lyrebird.config import Config
+from lyrebird.handlers._assign_area_owner import assign_area_owner
 from lyrebird.handlers._set_issue_type import set_issue_type
 from lyrebird.mapping import (
     build_mapping_comment,
@@ -508,6 +509,11 @@ def _create_private_mirror(
     node_id = pub_dict["node_id"]
     mapping_text = build_mapping_comment(config, node_id, priv_issue.number)
     pub_issue.create_comment(mapping_text)
+
+    # _sync_issue closes this mirror right after we return when the public
+    # issue is already closed, so only assign on mirrors that stay open.
+    if pub_issue.state == "open":
+        assign_area_owner(config, priv_issue, label_names)
 
     stats.created += 1
     return priv_issue
