@@ -7,6 +7,7 @@ import logging
 from github import Github
 
 from lyrebird.config import Config
+from lyrebird.handlers._assign_area_owner import assign_area_owner
 from lyrebird.handlers._set_issue_type import set_issue_type
 from lyrebird.mapping import (
     PrivateMapping,
@@ -62,6 +63,13 @@ def ensure_private_mapping(
         private_issue.number,
         public_issue["number"],
     )
+
+    # A bootstrap driven by an event on an already closed public issue creates
+    # a mirror that its caller closes moments later, so only assign on mirrors
+    # that stay open.  The freshly created issue is open and unassigned, so no
+    # refetch is needed.
+    if pub_issue.state == "open":
+        assign_area_owner(config, private_issue, label_names)
 
     issue_type = (public_issue.get("type") or {}).get("name")
     if issue_type:
