@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 
 # Default public close notes keyed by resolution key.
@@ -134,12 +137,36 @@ def _build_area_assignees(raw: str | None) -> dict[str, str]:
         "Algebras": "jvoight",
         ...
     }
-    Missing or empty means no auto-assignment happens.
+    Missing, empty, or malformed means no auto-assignment happens.  A bad map
+    disables only this feature; every other private-issue behaviour is
+    unaffected.
     """
     if not raw:
         return {}
-    data = json.loads(raw)
-    return {str(k): str(v) for k, v in data.items()}
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        logger.warning(
+            "AREA_ASSIGNEES is not valid JSON; area auto-assignment is disabled"
+        )
+        return {}
+    if not isinstance(data, dict):
+        logger.warning(
+            "AREA_ASSIGNEES must be a JSON object; area auto-assignment is disabled"
+        )
+        return {}
+    result: dict[str, str] = {}
+    for key, val in data.items():
+        if not key:
+            continue
+        if not isinstance(val, str) or not val.strip():
+            logger.warning(
+                "AREA_ASSIGNEES entry %r has an empty or non-string login; ignoring it",
+                key,
+            )
+            continue
+        result[key] = val.strip()
+    return result
 
 
 def load_config() -> Config:
