@@ -219,6 +219,24 @@ def test_public_label_does_not_override_existing_assignee(config, mock_client):
     mock_private.add_to_assignees.assert_not_called()
 
 
+def test_bootstrap_from_public_area_label_assigns_once(config, mock_client):
+    """Bootstrap assigns, and the handler's short circuit keeps it to one call."""
+    public_issue = make_public_issue_payload(
+        labels=[{"name": "Lattices", "color": "d73a4a", "description": ""}]
+    )
+    payload = {
+        "issue": public_issue,
+        "action": "labeled",
+        "label": {"name": "Lattices", "color": "d73a4a", "description": ""},
+    }
+
+    _, _, _, mock_priv_issue = setup_missing_mapping(config, mock_client)
+
+    handle(mock_client, config, payload)
+
+    mock_priv_issue.add_to_assignees.assert_called_once_with("assaferan")
+
+
 def test_unlabeled_bootstraps_then_removes(config, mock_client):
     """Real `unlabeled` webhooks deliver pre-action `issue.labels` — the removed
     label is still present. Bootstrap creates the mirror with the stale label,

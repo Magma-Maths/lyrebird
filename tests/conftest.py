@@ -189,6 +189,8 @@ def setup_missing_mapping(config, mock_client, private_issue_number: int = 99):
 
     mock_priv_issue = MagicMock()
     mock_priv_issue.number = private_issue_number
+    mock_priv_issue.state = "open"
+    mock_priv_issue.assignees = []
     mock_priv_repo.create_issue.return_value = mock_priv_issue
 
     mock_client.get_repo.side_effect = lambda name: (

@@ -104,6 +104,62 @@ def test_bootstrap_mirrors_labels_type_and_milestone(config, mock_client):
     mock_client._Github__requester.requestJsonAndCheck.assert_called()
 
 
+def test_bootstrap_assigns_area_owner_from_payload_labels(config, mock_client):
+    """The mirror the bootstrap creates carries the area label, so it is the
+    bootstrap that has to assign the owner."""
+    public_issue = make_public_issue_payload(
+        labels=[{"name": "Lattices", "color": "d73a4a", "description": ""}]
+    )
+    _, _, _, mock_priv_issue = setup_missing_mapping(config, mock_client)
+
+    ensure_private_mapping(mock_client, config, public_issue)
+
+    mock_priv_issue.add_to_assignees.assert_called_once_with("assaferan")
+
+
+def test_bootstrap_does_not_assign_for_unmapped_labels(config, mock_client):
+    public_issue = make_public_issue_payload(
+        labels=[{"name": "bug", "color": "d73a4a", "description": ""}]
+    )
+    _, _, _, mock_priv_issue = setup_missing_mapping(config, mock_client)
+
+    ensure_private_mapping(mock_client, config, public_issue)
+
+    mock_priv_issue.add_to_assignees.assert_not_called()
+
+
+def test_bootstrap_with_two_area_labels_assigns_only_first_owner(config, mock_client):
+    """With two mapped labels the first one in payload order wins, once."""
+    public_issue = make_public_issue_payload(
+        labels=[
+            {"name": "Lattices", "color": "d73a4a", "description": ""},
+            {"name": "Algebras", "color": "0075ca", "description": ""},
+        ]
+    )
+    _, _, _, mock_priv_issue = setup_missing_mapping(config, mock_client)
+
+    ensure_private_mapping(mock_client, config, public_issue)
+
+    mock_priv_issue.add_to_assignees.assert_called_once_with("assaferan")
+
+
+def test_bootstrap_skips_area_assignment_for_closed_public_issue(config, mock_client):
+    """A bootstrap driven by an event on an already closed public issue creates
+    a mirror that is closed moments later, so it gets no owner."""
+    public_issue = make_public_issue_payload(
+        state="closed",
+        labels=[{"name": "Lattices", "color": "d73a4a", "description": ""}],
+    )
+    _, _, mock_pub_issue_obj, mock_priv_issue = setup_missing_mapping(
+        config, mock_client
+    )
+    mock_pub_issue_obj.state = "closed"
+
+    ensure_private_mapping(mock_client, config, public_issue)
+
+    mock_priv_issue.add_to_assignees.assert_not_called()
+
+
 def test_bootstrap_self_heals_via_fallback_body_search(config, mock_client):
     """If the mapping comment is missing but a private issue already has the body marker,
     resolve_mapping self-heals and ensure_private_mapping returns without creating."""
