@@ -7,7 +7,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from lyrebird.sync import SyncStats, sync
-from tests.conftest import make_mock_comment, make_mock_milestone
+from tests.conftest import (
+    make_mock_comment,
+    make_mock_milestone,
+    wire_assignee_tracking,
+)
 
 
 def _make_pub_issue(
@@ -87,7 +91,7 @@ def _make_priv_issue(
     issue.milestone = None
     issue.get_comments = MagicMock(return_value=[])
     issue.get_events = MagicMock(return_value=[])
-    return issue
+    return wire_assignee_tracking(issue)
 
 
 def _setup_repos(config, mock_client, pub_issues, priv_issues=None):

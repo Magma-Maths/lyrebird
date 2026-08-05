@@ -41,6 +41,33 @@ def _safe_number(priv_issue) -> int | str:
         return "?"
 
 
+def _assignment_confirmed(priv_issue, login) -> bool:
+    """Say whether *login* shows up in the issue's refreshed assignee list.
+
+    `add_to_assignees` rewrites the issue in place from the POST response body,
+    so this reads GitHub's own view of the outcome at no extra API call.  A
+    warning here names one person's account, so anything unreadable counts as
+    confirmation: only a list read end to end that lacks the login is evidence
+    the assignment was dropped.  Logins compare case-insensitively, since the
+    response carries the account's own spelling rather than the configured one.
+    """
+    try:
+        assignees = priv_issue.assignees
+        if assignees is None:
+            return True
+        wanted = login.casefold()
+        unreadable = False
+        for assignee in assignees:
+            try:
+                if assignee.login.casefold() == wanted:
+                    return True
+            except Exception:
+                unreadable = True
+        return unreadable
+    except Exception:
+        return True
+
+
 def assign_area_owner(
     config: Config, priv_issue, label_names: Iterable[str]
 ) -> str | None:
@@ -48,7 +75,8 @@ def assign_area_owner(
 
     Only open issues with no assignee are touched, so an existing assignment is
     never overridden.  Returns the login assigned, or None when nothing was
-    assigned.  Every failure is contained here: callers must not add a second
+    assigned, which includes an assignment GitHub accepts and then silently
+    drops.  Every failure is contained here: callers must not add a second
     try/except of their own.  *label_names* is scanned once, so a one-shot
     iterable is fine.
     """
@@ -81,6 +109,15 @@ def assign_area_owner(
             )
             return None
         priv_issue.add_to_assignees(login)
+        if not _assignment_confirmed(priv_issue, login):
+            logger.warning(
+                "GitHub dropped the assignment of '%s' to private #%s for area "
+                "label '%s'; the login may have no push access on the private repo",
+                login,
+                issue_id,
+                label_name,
+            )
+            return None
         logger.info(
             "Assigned '%s' to private #%s for area label '%s'",
             login,
