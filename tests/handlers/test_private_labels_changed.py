@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 from lyrebird.handlers.private_labels_changed import handle
-from tests.conftest import make_private_issue_body
+from tests.conftest import make_private_issue_body, wire_assignee_tracking
 
 
 def test_mirrors_label_to_public_if_exists(config, mock_client):
@@ -93,6 +93,7 @@ def _wire_priv_issue(mock_client, config, assignees, state="open"):
     mock_priv_issue.number = 10
     mock_priv_issue.assignees = assignees
     mock_priv_issue.state = state
+    wire_assignee_tracking(mock_priv_issue)
     mock_priv_repo.get_issue.return_value = mock_priv_issue
     # Public repo mock: label does not exist so mirroring is a no-op.
     mock_pub_repo = MagicMock()

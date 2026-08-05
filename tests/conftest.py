@@ -44,6 +44,27 @@ def mock_client():
     return client
 
 
+def wire_assignee_tracking(issue):
+    """Make a mock issue's add_to_assignees update `assignees`, as PyGithub does.
+
+    `Issue.add_to_assignees` ends by rewriting the issue from the POST response
+    body, so a real object's `assignees` already reflects the call by the time
+    it returns.  A mock that keeps a frozen list misrepresents the library and
+    hides any code that reads the result back.
+    """
+
+    def _add(*logins):
+        added = []
+        for login in logins:
+            user = MagicMock()
+            user.login = login
+            added.append(user)
+        issue.assignees = list(issue.assignees or []) + added
+
+    issue.add_to_assignees.side_effect = _add
+    return issue
+
+
 def make_mock_issue(
     number: int = 1,
     node_id: str = "I_abc123",
@@ -80,7 +101,7 @@ def make_mock_issue(
     repo = MagicMock()
     type(issue).repository = PropertyMock(return_value=repo)
 
-    return issue
+    return wire_assignee_tracking(issue)
 
 
 def make_mock_comment(
@@ -191,6 +212,7 @@ def setup_missing_mapping(config, mock_client, private_issue_number: int = 99):
     mock_priv_issue.number = private_issue_number
     mock_priv_issue.state = "open"
     mock_priv_issue.assignees = []
+    wire_assignee_tracking(mock_priv_issue)
     mock_priv_repo.create_issue.return_value = mock_priv_issue
 
     mock_client.get_repo.side_effect = lambda name: (
