@@ -59,16 +59,22 @@ def test_skips_bot_authored_comment(config, mock_client):
     mock_client.get_repo.assert_not_called()
 
 
-def test_bootstraps_when_no_mapping(config, mock_client):
-    """When a comment arrives before the issue's `opened` ran, bootstrap the mirror."""
-    payload = make_comment_payload(comment_id=555, body="First comment")
-    _, mock_priv_repo, _, mock_priv_issue = setup_missing_mapping(config, mock_client)
+def test_closed_public_comment_bootstrap_assigns_open_mirror(config, mock_client):
+    payload = make_comment_payload(comment_id=555, body="After close")
+    payload["issue"]["state"] = "closed"
+    payload["issue"]["labels"] = [
+        {"name": "Lattices", "color": "d73a4a", "description": ""}
+    ]
+    _, mock_priv_repo, mock_public, mock_private = setup_missing_mapping(
+        config, mock_client
+    )
+    mock_public.state = "closed"
 
     handle(mock_client, config, payload)
 
-    # Bootstrap happened
     mock_priv_repo.create_issue.assert_called_once()
-    # Comment mirrored onto the bootstrapped private issue
-    mock_priv_issue.create_comment.assert_called()
-    mirrored = mock_priv_issue.create_comment.call_args[0][0]
-    assert "First comment" in mirrored
+    mock_private.edit.assert_not_called()
+    mock_private.add_to_assignees.assert_called_once_with("assaferan")
+    mock_private.create_comment.assert_called()
+    mirrored = mock_private.create_comment.call_args[0][0]
+    assert "After close" in mirrored
