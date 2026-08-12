@@ -143,23 +143,6 @@ def test_bootstrap_with_two_area_labels_assigns_only_first_owner(config, mock_cl
     mock_priv_issue.add_to_assignees.assert_called_once_with("assaferan")
 
 
-def test_bootstrap_skips_area_assignment_for_closed_public_issue(config, mock_client):
-    """A bootstrap driven by an event on an already closed public issue creates
-    a mirror that is closed moments later, so it gets no owner."""
-    public_issue = make_public_issue_payload(
-        state="closed",
-        labels=[{"name": "Lattices", "color": "d73a4a", "description": ""}],
-    )
-    _, _, mock_pub_issue_obj, mock_priv_issue = setup_missing_mapping(
-        config, mock_client
-    )
-    mock_pub_issue_obj.state = "closed"
-
-    ensure_private_mapping(mock_client, config, public_issue)
-
-    mock_priv_issue.add_to_assignees.assert_not_called()
-
-
 def test_bootstrap_self_heals_via_fallback_body_search(config, mock_client):
     """If the mapping comment is missing but a private issue already has the body marker,
     resolve_mapping self-heals and ensure_private_mapping returns without creating."""

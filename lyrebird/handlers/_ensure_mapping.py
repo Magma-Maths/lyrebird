@@ -22,7 +22,11 @@ logger = logging.getLogger(__name__)
 
 
 def ensure_private_mapping(
-    client: Github, config: Config, public_issue: dict
+    client: Github,
+    config: Config,
+    public_issue: dict,
+    *,
+    assign_owner_on_bootstrap: bool = True,
 ) -> PrivateMapping:
     """Return the private mapping, creating a new private issue if missing.
 
@@ -64,11 +68,9 @@ def ensure_private_mapping(
         public_issue["number"],
     )
 
-    # A bootstrap driven by an event on an already closed public issue creates
-    # a mirror that its caller closes moments later, so only assign on mirrors
-    # that stay open.  The freshly created issue is open and unassigned, so no
-    # refetch is needed.
-    if pub_issue.state == "open":
+    # Close-event callers opt out because they immediately close the mirror.
+    # Other bootstrap callers keep assignment governed by private issue guards.
+    if assign_owner_on_bootstrap:
         assign_area_owner(config, private_issue, label_names)
 
     issue_type = (public_issue.get("type") or {}).get("name")

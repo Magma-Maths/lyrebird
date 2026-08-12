@@ -18,7 +18,12 @@ def handle(client: Github, config: Config, payload: dict) -> None:
     action = payload["action"]  # "closed" or "reopened"
     sender = payload.get("sender", {}).get("login", "unknown")
 
-    mapping = ensure_private_mapping(client, config, public_issue)
+    mapping = ensure_private_mapping(
+        client,
+        config,
+        public_issue,
+        assign_owner_on_bootstrap=action != "closed",
+    )
 
     if mapping.was_bootstrapped and action == "reopened":
         # Rare race: both `opened` and `closed` were dropped by the Actions

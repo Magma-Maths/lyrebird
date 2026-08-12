@@ -183,7 +183,12 @@ def test_reopen_bootstraps_when_no_mapping_short_circuits(config, mock_client):
 
 def test_close_bootstraps_when_no_mapping(config, mock_client):
     """When `closed` arrives before `opened` ran, bootstrap the mirror then close it."""
-    public_issue = make_public_issue_payload(state="closed")
+    public_issue = make_public_issue_payload(
+        state="closed",
+        labels=[
+            {"name": "Lattices", "color": "d73a4a", "description": ""}
+        ],
+    )
     public_issue["state_reason"] = "completed"
     payload = {
         "issue": public_issue,
@@ -191,19 +196,20 @@ def test_close_bootstraps_when_no_mapping(config, mock_client):
         "sender": {"login": "reporter", "type": "User"},
     }
 
-    _, mock_priv_repo, _, mock_priv_issue = setup_missing_mapping(config, mock_client)
+    _, mock_priv_repo, mock_public, mock_priv_issue = setup_missing_mapping(
+        config, mock_client
+    )
+    mock_public.state = "closed"
 
     handle(mock_client, config, payload)
 
-    # Bootstrap happened
     mock_priv_repo.create_issue.assert_called_once()
-    # And the private issue was then closed with state_reason propagated
-    # (bootstrap can only create in open state, so close is always needed).
+    mock_priv_issue.add_to_assignees.assert_not_called()
     edit_calls = mock_priv_issue.edit.call_args_list
     assert any(
-        c.kwargs.get("state") == "closed"
-        and c.kwargs.get("state_reason") == "completed"
-        for c in edit_calls
+        call.kwargs.get("state") == "closed"
+        and call.kwargs.get("state_reason") == "completed"
+        for call in edit_calls
     ), "private issue should have been closed with state_reason=completed"
 
 
