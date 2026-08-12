@@ -179,24 +179,19 @@ def _wire_existing_mapping(config, mock_client, mock_private):
     return mock_pub_issue_obj
 
 
-def test_assigns_area_owner_when_public_area_label_added(config, mock_client):
-    """A human labelling the public tracker still gets the private mirror
-    assigned: the mirrored private `labeled` event comes from the bot and is
-    dropped before any handler runs."""
-    public_issue = make_public_issue_payload()
+def test_assigns_area_owner_when_public_label_case_differs(config, mock_client):
     payload = {
         "action": "labeled",
-        "issue": public_issue,
-        "label": {"name": "Lattices", "color": "d73a4a", "description": ""},
+        "issue": make_public_issue_payload(),
+        "label": {"name": "lattices", "color": "d73a4a", "description": ""},
         "sender": {"login": "triager", "type": "User"},
     }
-
     mock_private = make_mock_issue(number=10)
     _wire_existing_mapping(config, mock_client, mock_private)
 
     handle(mock_client, config, payload)
 
-    mock_private.add_to_labels.assert_called_with("Lattices")
+    mock_private.add_to_labels.assert_called_with("lattices")
     mock_private.add_to_assignees.assert_called_once_with("assaferan")
 
 
