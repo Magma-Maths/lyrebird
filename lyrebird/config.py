@@ -94,7 +94,11 @@ class Config:
 
     def assignee_for_area(self, label_name: str) -> str | None:
         """Return the default assignee login for an area label, or None."""
-        return self.area_assignees.get(label_name)
+        wanted = label_name.casefold()
+        for area, login in self.area_assignees.items():
+            if area.casefold() == wanted:
+                return login
+        return None
 
 
 def _build_resolution_labels(
