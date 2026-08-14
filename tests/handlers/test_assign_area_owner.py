@@ -26,6 +26,22 @@ def _named_user(login: str):
     return user
 
 
+def _assignment_event(action: str, assignee: str, assigner: str):
+    event = MagicMock()
+    event.event = action
+    event.assignee = _named_user(assignee)
+    event.actor = _named_user(assignee)
+    event.assigner = _named_user(assigner)
+    return event
+
+
+def _refresh_with_assignees(issue, *logins: str):
+    def _refresh():
+        issue.assignees = [_named_user(login) for login in logins]
+
+    return _refresh
+
+
 def _warnings(caplog):
     return [r for r in caplog.records if r.levelno >= logging.WARNING]
 
@@ -140,6 +156,274 @@ def test_confirmed_assignment_is_not_warned(config, caplog):
     assert _warnings(caplog) == []
 
 
+def test_lost_assignment_race_yields_to_concurrent_assignee(config):
+    priv_issue = _priv_issue()
+
+    def _assign_with_race(*_):
+        priv_issue.assignees = [
+            _named_user("assaferan"),
+            _named_user("concurrent-owner"),
+        ]
+
+    def _remove_to_concurrent_owner(*_):
+        priv_issue.assignees = [_named_user("concurrent-owner")]
+
+    priv_issue.add_to_assignees.side_effect = _assign_with_race
+    priv_issue.get_events.return_value = [
+        _assignment_event("assigned", "assaferan", "lyrebird[bot]")
+    ]
+    priv_issue.update.side_effect = _refresh_with_assignees(
+        priv_issue, "assaferan", "concurrent-owner"
+    )
+    priv_issue.remove_from_assignees.side_effect = _remove_to_concurrent_owner
+
+    assert assign_area_owner(config, priv_issue, ["Lattices"]) is None
+    priv_issue.remove_from_assignees.assert_called_once_with("assaferan")
+
+
+def test_yield_keeps_login_when_co_assignee_vanished_on_refresh(config, caplog):
+    priv_issue = _priv_issue()
+
+    def _assign_with_race(*_):
+        priv_issue.assignees = [
+            _named_user("assaferan"),
+            _named_user("concurrent-owner"),
+        ]
+
+    priv_issue.add_to_assignees.side_effect = _assign_with_race
+    priv_issue.get_events.return_value = [
+        _assignment_event("assigned", "assaferan", "lyrebird[bot]")
+    ]
+    priv_issue.update.side_effect = _refresh_with_assignees(priv_issue, "assaferan")
+    caplog.set_level(logging.INFO)
+
+    assert assign_area_owner(config, priv_issue, ["Lattices"]) == "assaferan"
+    priv_issue.remove_from_assignees.assert_not_called()
+    assert "Assigned 'assaferan' to private #10" in caplog.text
+
+
+def test_yield_warns_when_refresh_leaves_issue_unassigned(config, caplog):
+    priv_issue = _priv_issue()
+
+    def _assign_with_race(*_):
+        priv_issue.assignees = [
+            _named_user("assaferan"),
+            _named_user("concurrent-owner"),
+        ]
+
+    priv_issue.add_to_assignees.side_effect = _assign_with_race
+    priv_issue.get_events.return_value = [
+        _assignment_event("assigned", "assaferan", "lyrebird[bot]")
+    ]
+    priv_issue.update.side_effect = _refresh_with_assignees(priv_issue)
+
+    assert assign_area_owner(config, priv_issue, ["Lattices"]) is None
+    priv_issue.remove_from_assignees.assert_not_called()
+    assert "ended unassigned after concurrent yields" in caplog.text
+
+
+def test_yield_keeps_login_when_refresh_state_is_unreadable(config, caplog):
+    priv_issue = _priv_issue()
+
+    def _assign_with_race(*_):
+        priv_issue.assignees = [
+            _named_user("assaferan"),
+            _named_user("concurrent-owner"),
+        ]
+
+    def _refresh_with_unreadable_state():
+        priv_issue.assignees = None
+
+    priv_issue.add_to_assignees.side_effect = _assign_with_race
+    priv_issue.get_events.return_value = [
+        _assignment_event("assigned", "assaferan", "lyrebird[bot]")
+    ]
+    priv_issue.update.side_effect = _refresh_with_unreadable_state
+
+    assert assign_area_owner(config, priv_issue, ["Lattices"]) == "assaferan"
+    priv_issue.remove_from_assignees.assert_not_called()
+    assert "post-write assignee state could not be verified for private #10" in caplog.text
+
+
+def test_yield_warns_when_removal_leaves_issue_unassigned(config, caplog):
+    priv_issue = _priv_issue()
+
+    def _assign_with_race(*_):
+        priv_issue.assignees = [
+            _named_user("assaferan"),
+            _named_user("concurrent-owner"),
+        ]
+
+    def _remove_and_leave_unassigned(*_):
+        priv_issue.assignees = []
+
+    priv_issue.add_to_assignees.side_effect = _assign_with_race
+    priv_issue.get_events.return_value = [
+        _assignment_event("assigned", "assaferan", "lyrebird[bot]")
+    ]
+    priv_issue.update.side_effect = _refresh_with_assignees(
+        priv_issue, "assaferan", "concurrent-owner"
+    )
+    priv_issue.remove_from_assignees.side_effect = _remove_and_leave_unassigned
+
+    assert assign_area_owner(config, priv_issue, ["Lattices"]) is None
+    priv_issue.remove_from_assignees.assert_called_once_with("assaferan")
+    assert "ended unassigned after concurrent yields" in caplog.text
+
+
+def test_yield_warns_when_post_removal_assignee_state_is_unreadable(config, caplog):
+    priv_issue = _priv_issue()
+
+    def _assign_with_race(*_):
+        priv_issue.assignees = [
+            _named_user("assaferan"),
+            _named_user("concurrent-owner"),
+        ]
+
+    def _remove_with_unreadable_response(*_):
+        priv_issue.assignees = None
+
+    priv_issue.add_to_assignees.side_effect = _assign_with_race
+    priv_issue.get_events.return_value = [
+        _assignment_event("assigned", "assaferan", "lyrebird[bot]")
+    ]
+    priv_issue.update.side_effect = _refresh_with_assignees(
+        priv_issue, "assaferan", "concurrent-owner"
+    )
+    priv_issue.remove_from_assignees.side_effect = _remove_with_unreadable_response
+
+    assert assign_area_owner(config, priv_issue, ["Lattices"]) is None
+    priv_issue.remove_from_assignees.assert_called_once_with("assaferan")
+    assert "post-removal assignee state could not be verified for private #10" in caplog.text
+    assert "yielded to concurrent assignee" not in caplog.text
+
+
+def test_unreadable_post_write_state_warns_and_keeps_login(config, caplog):
+    priv_issue = _priv_issue()
+
+    def _drop_the_list(*_):
+        priv_issue.assignees = None
+
+    priv_issue.add_to_assignees.side_effect = _drop_the_list
+
+    assert assign_area_owner(config, priv_issue, ["Lattices"]) == "assaferan"
+    priv_issue.remove_from_assignees.assert_not_called()
+    assert "post-write assignee state could not be verified for private #10" in caplog.text
+
+
+def test_human_provenance_race_keeps_all_assignees(config, caplog):
+    """A human assignment during the POST race is never removed."""
+    priv_issue = _priv_issue()
+
+    def _assign_with_race(*_):
+        priv_issue.assignees = [
+            _named_user("assaferan"),
+            _named_user("concurrent-owner"),
+        ]
+
+    priv_issue.add_to_assignees.side_effect = _assign_with_race
+    priv_issue.get_events.return_value = [
+        _assignment_event("assigned", "assaferan", "lyrebird[bot]"),
+        _assignment_event("unassigned", "assaferan", "engineer"),
+        _assignment_event("assigned", "assaferan", "engineer"),
+    ]
+    assert assign_area_owner(config, priv_issue, ["Lattices"]) is None
+    priv_issue.remove_from_assignees.assert_not_called()
+    assert len(_warnings(caplog)) == 1
+    assert "multiple assignees" in _warnings(caplog)[0].getMessage()
+    assert "assaferan, concurrent-owner" in _warnings(caplog)[0].getMessage()
+
+
+def test_clean_assignment_keeps_owner_without_removal(config):
+    priv_issue = _priv_issue()
+
+    assert assign_area_owner(config, priv_issue, ["Lattices"]) == "assaferan"
+    priv_issue.remove_from_assignees.assert_not_called()
+    priv_issue.get_events.assert_not_called()
+
+
+def test_unavailable_race_provenance_keeps_all_assignees(config, caplog):
+    priv_issue = _priv_issue()
+
+    def _assign_with_race(*_):
+        priv_issue.assignees = [
+            _named_user("assaferan"),
+            _named_user("concurrent-owner"),
+        ]
+
+    priv_issue.add_to_assignees.side_effect = _assign_with_race
+    priv_issue.get_events.side_effect = RuntimeError("502 Bad Gateway")
+
+    assert assign_area_owner(config, priv_issue, ["Lattices"]) is None
+    priv_issue.remove_from_assignees.assert_not_called()
+    assert len(_warnings(caplog)) == 1
+    assert "may need manual attention" in _warnings(caplog)[0].getMessage()
+
+
+def test_empty_event_history_keeps_all_assignees(config, caplog):
+    priv_issue = _priv_issue()
+
+    def _assign_with_race(*_):
+        priv_issue.assignees = [
+            _named_user("assaferan"),
+            _named_user("concurrent-owner"),
+        ]
+
+    priv_issue.add_to_assignees.side_effect = _assign_with_race
+    priv_issue.get_events.return_value = []
+
+    assert assign_area_owner(config, priv_issue, ["Lattices"]) is None
+    priv_issue.remove_from_assignees.assert_not_called()
+    assert len(_warnings(caplog)) == 1
+    assert "assaferan" in _warnings(caplog)[0].getMessage()
+
+
+def test_latest_unassignment_provenance_keeps_all_assignees(config, caplog):
+    priv_issue = _priv_issue()
+
+    def _assign_with_race(*_):
+        priv_issue.assignees = [
+            _named_user("assaferan"),
+            _named_user("concurrent-owner"),
+        ]
+
+    priv_issue.add_to_assignees.side_effect = _assign_with_race
+    priv_issue.get_events.return_value = [
+        _assignment_event("assigned", "assaferan", "lyrebird[bot]"),
+        _assignment_event("unassigned", "assaferan", "engineer"),
+    ]
+
+    assert assign_area_owner(config, priv_issue, ["Lattices"]) is None
+    priv_issue.remove_from_assignees.assert_not_called()
+    assert len(_warnings(caplog)) == 1
+    assert "assaferan" in _warnings(caplog)[0].getMessage()
+
+
+def test_lost_assignment_race_contains_removal_failure(config, caplog):
+    priv_issue = _priv_issue()
+
+    def _assign_with_race(*_):
+        priv_issue.assignees = [
+            _named_user("assaferan"),
+            _named_user("concurrent-owner"),
+        ]
+
+    priv_issue.add_to_assignees.side_effect = _assign_with_race
+    priv_issue.get_events.return_value = [
+        _assignment_event("assigned", "assaferan", "lyrebird[bot]")
+    ]
+    priv_issue.update.side_effect = _refresh_with_assignees(
+        priv_issue, "assaferan", "concurrent-owner"
+    )
+    priv_issue.remove_from_assignees.side_effect = RuntimeError("502 Bad Gateway")
+
+    assert assign_area_owner(config, priv_issue, ["Lattices"]) is None
+    priv_issue.remove_from_assignees.assert_called_once_with("assaferan")
+    assert "removal attempt for 'assaferan' failed with outcome unknown" in caplog.text
+    assert "assignees need manual verification" in caplog.text
+    assert "Failed to assign" not in caplog.text
+
+
 def test_canonical_login_casing_is_not_a_failure(config, caplog):
     # GitHub echoes the account's own spelling of a login, which need not match
     # the configured one.
@@ -154,7 +438,7 @@ def test_canonical_login_casing_is_not_a_failure(config, caplog):
     assert _warnings(caplog) == []
 
 
-def test_unreadable_assignee_login_is_contained(config, caplog):
+def test_unreadable_assignee_login_is_warned(config, caplog):
     priv_issue = _priv_issue()
     exploding = MagicMock()
     type(exploding).login = PropertyMock(side_effect=RuntimeError("502 Bad Gateway"))
@@ -165,23 +449,30 @@ def test_unreadable_assignee_login_is_contained(config, caplog):
     priv_issue.add_to_assignees.side_effect = _assign_unreadable
 
     assert assign_area_owner(config, priv_issue, ["Lattices"]) == "assaferan"
-    assert _warnings(caplog) == []
+    assert "post-write assignee state could not be verified for private #10" in caplog.text
 
 
-def test_unreadable_assignee_list_is_contained(config, caplog):
-    # `.assignees` answers the pre-check, then fails on the read-back.
+def test_unreadable_assignee_list_is_warned(config, caplog):
+    # `.assignees` answers the pre-check, then every later read gets the 502.
     priv_issue = MagicMock()
     priv_issue.number = 10
     priv_issue.state = "open"
-    type(priv_issue).assignees = PropertyMock(
-        side_effect=[[], RuntimeError("502 Bad Gateway")]
-    )
+    reads = 0
+
+    def _assignees():
+        nonlocal reads
+        reads += 1
+        if reads == 1:
+            return []
+        raise RuntimeError("502 Bad Gateway")
+
+    type(priv_issue).assignees = PropertyMock(side_effect=_assignees)
 
     assert assign_area_owner(config, priv_issue, ["Lattices"]) == "assaferan"
-    assert _warnings(caplog) == []
+    assert "post-write assignee state could not be verified for private #10" in caplog.text
 
 
-def test_missing_assignee_list_is_contained(config, caplog):
+def test_missing_assignee_list_is_warned(config, caplog):
     # A response body without an `assignees` field leaves the attribute unset,
     # which PyGithub surfaces as None.
     priv_issue = _priv_issue()
@@ -192,4 +483,4 @@ def test_missing_assignee_list_is_contained(config, caplog):
     priv_issue.add_to_assignees.side_effect = _drop_the_list
 
     assert assign_area_owner(config, priv_issue, ["Lattices"]) == "assaferan"
-    assert _warnings(caplog) == []
+    assert "post-write assignee state could not be verified for private #10" in caplog.text
