@@ -122,6 +122,35 @@ def test_assigns_area_owner_when_unassigned(config, mock_client):
     priv_issue.add_to_assignees.assert_called_once_with("assaferan")
 
 
+def test_racing_bot_assignment_is_removed(config, mock_client):
+    payload = {
+        "action": "labeled",
+        "issue": {"number": 10, "body": make_private_issue_body(), "state": "open"},
+        "label": {"name": "Lattices"},
+        "sender": {"login": "triager", "type": "User"},
+    }
+    priv_issue = _wire_priv_issue(mock_client, config, assignees=[])
+    concurrent_owner = MagicMock()
+    concurrent_owner.login = "concurrent-owner"
+
+    def _assign_with_race(*_):
+        owner = MagicMock()
+        owner.login = "assaferan"
+        priv_issue.assignees = [owner, concurrent_owner]
+
+    event = MagicMock()
+    event.event = "assigned"
+    event.assignee = MagicMock(login="assaferan")
+    event.actor = MagicMock(login="assaferan")
+    event.assigner = MagicMock(login="lyrebird[bot]")
+    priv_issue.add_to_assignees.side_effect = _assign_with_race
+    priv_issue.get_events.return_value = [event]
+
+    handle(mock_client, config, payload)
+
+    priv_issue.remove_from_assignees.assert_called_once_with("assaferan")
+
+
 def test_does_not_override_existing_assignee(config, mock_client):
     existing = MagicMock()
     existing.login = "someone"

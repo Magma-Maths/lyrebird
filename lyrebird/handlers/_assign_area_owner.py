@@ -13,6 +13,7 @@ from typing import Iterable
 from github import Github
 
 from lyrebird.config import Config
+from lyrebird.loop_prevention import is_bot_login
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,53 @@ def _assignment_confirmed(priv_issue, login) -> bool:
         return True
 
 
+def _concurrent_assignees(priv_issue, login) -> list[str] | None:
+    """Return readable co-assignees, or None when the state is uncertain."""
+    try:
+        assignees = priv_issue.assignees
+        if assignees is None:
+            return None
+        wanted = login.casefold()
+        co_assignees = []
+        for assignee in assignees:
+            try:
+                assignee_login = assignee.login
+                if assignee_login.casefold() != wanted:
+                    co_assignees.append(assignee_login)
+            except Exception:
+                # An incomplete response is uncertain, so do not remove a good assignment.
+                return None
+        return co_assignees
+    except Exception:
+        return None
+
+
+def _bot_assignment_provenance(config: Config, priv_issue, login: str) -> bool:
+    """Say whether the bot made the latest assignment change for *login*.
+
+    Re-adding an already-assigned login is a no-op that emits no new assigned
+    event, so the latest assigned event for the login reflects who actually
+    caused the current assignment.
+    """
+    try:
+        last_matching_action = last_matching_assigner = None
+        wanted = login.casefold()
+        for issue_event in priv_issue.get_events():
+            action = issue_event.event
+            if action not in ("assigned", "unassigned"):
+                continue
+            if issue_event.assignee.login.casefold() != wanted:
+                continue
+            last_matching_action = action
+            last_matching_assigner = issue_event.assigner.login
+        return (
+            last_matching_action == "assigned"
+            and is_bot_login(config, last_matching_assigner)
+        )
+    except Exception:
+        return False
+
+
 def assign_area_owner(
     config: Config, priv_issue, label_names: Iterable[str]
 ) -> str | None:
@@ -78,7 +126,13 @@ def assign_area_owner(
     assigned, which includes an assignment GitHub accepts and then silently
     drops.  Every failure is contained here: callers must not add a second
     try/except of their own.  *label_names* is scanned once, so a one-shot
-    iterable is fine.
+    iterable is fine.  GitHub has no conditional assignment and assigning
+    workflows are not mutually serialized, so the guard is check-then-act: a
+    detected race yields only when the issue events prove the bot made the
+    assignment.  A human-caused or unprovable assignment is never touched.
+    The final one-request window cannot be closed by this API, so a double
+    yield can still end unassigned; it is detected and warned rather than
+    prevented.
     """
     label_name = "?"
     login = "?"
@@ -116,6 +170,95 @@ def assign_area_owner(
                 login,
                 issue_id,
                 label_name,
+            )
+            return None
+        co_assignees = _concurrent_assignees(priv_issue, login)
+        if co_assignees is None:
+            logger.warning(
+                "The post-write assignee state could not be verified for private #%s; keeping '%s' assigned",
+                issue_id,
+                login,
+            )
+            return login
+        if co_assignees:
+            # Event history is fetched only for this rare post-write conflict.
+            if not _bot_assignment_provenance(config, priv_issue, login):
+                logger.warning(
+                    "Private #%s now has multiple assignees after the bot added '%s': %s; may need manual attention",
+                    issue_id,
+                    login,
+                    ", ".join([login, *co_assignees]),
+                )
+                return None
+            try:
+                priv_issue.update()
+            except Exception:
+                logger.warning(
+                    "The post-write assignee state could not be verified for private #%s; keeping '%s' assigned",
+                    issue_id,
+                    login,
+                    exc_info=True,
+                )
+                return login
+            co_assignees = _concurrent_assignees(priv_issue, login)
+            if co_assignees is None:
+                logger.warning(
+                    "The post-write assignee state could not be verified for private #%s; keeping '%s' assigned",
+                    issue_id,
+                    login,
+                )
+                return login
+            if not co_assignees:
+                if not _assignment_confirmed(priv_issue, login):
+                    logger.warning(
+                        "Private #%s ended unassigned after concurrent yields and needs manual attention",
+                        issue_id,
+                    )
+                    return None
+                logger.info(
+                    "Assigned '%s' to private #%s for area label '%s'",
+                    login,
+                    issue_id,
+                    label_name,
+                )
+                return login
+            try:
+                priv_issue.remove_from_assignees(login)
+            except Exception:
+                logger.warning(
+                    "Private #%s removal attempt for '%s' failed with outcome unknown; the issue's assignees need manual verification",
+                    issue_id,
+                    login,
+                    exc_info=True,
+                )
+                return None
+            try:
+                assignees_after_removal = priv_issue.assignees
+            except Exception:
+                logger.warning(
+                    "The post-removal assignee state could not be verified for private #%s; needs manual verification",
+                    issue_id,
+                    exc_info=True,
+                )
+                return None
+            if assignees_after_removal is None:
+                logger.warning(
+                    "The post-removal assignee state could not be verified for private #%s; needs manual verification",
+                    issue_id,
+                )
+                return None
+            if not assignees_after_removal:
+                # Re-adding can reopen the race as assignment ping-pong.
+                logger.warning(
+                    "Private #%s ended unassigned after concurrent yields and needs manual attention",
+                    issue_id,
+                )
+                return None
+            logger.warning(
+                "Private #%s assignment of '%s' yielded to concurrent assignee(s) %s",
+                issue_id,
+                login,
+                ", ".join(co_assignees),
             )
             return None
         logger.info(

@@ -67,6 +67,8 @@ When an **area label** (e.g. `Lattices`, `Algebras`) lands on an **open** privat
 issue that has **no assignee**, Lyrebird assigns that area's default owner. It
 never overrides an existing assignment, so the owner is free to reassign
 afterwards.
+If GitHub reports a concurrent assignment after it adds an owner, Lyrebird
+yields only when its own event history proves the bot made that assignment.
 
 Lyrebird ignores events sent by its own App identity, so labels the bot applies
 never come back as events. The assignment therefore runs inline at every site
