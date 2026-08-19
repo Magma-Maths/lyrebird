@@ -44,4 +44,8 @@ Copy all four files to `.github/workflows/`:
 
 ## Concurrency
 
-All workflows use GitHub Actions concurrency groups keyed by issue `node_id` with `cancel-in-progress: false`. This serializes events per issue and prevents race conditions.
+`handle-public-event.yml`, `handle-private-issue.yml`, and `handle-private-comment.yml` each use a concurrency group keyed by the issue's `node_id`, with `cancel-in-progress: false`. This serializes events for the same issue and prevents race conditions.
+
+`sync.yml` uses a single repository-wide group, `lyrebird-sync`, with `cancel-in-progress: true`. Sync is not scoped to one issue, so a newer sync run supersedes any run already in progress instead of queuing behind it.
+
+`public-dispatch.yml` declares no concurrency group; it only forwards events to the private repo and does no work that needs serializing.
