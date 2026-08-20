@@ -38,6 +38,7 @@ jobs:
   sync:
     if: github.repository == vars.PRIVATE_REPO
     runs-on: ubuntu-slim
+    timeout-minutes: 12
     steps:
       - name: Checkout lyrebird
         uses: actions/checkout@v6

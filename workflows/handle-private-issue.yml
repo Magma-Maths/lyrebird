@@ -33,6 +33,7 @@ jobs:
       group: private-issue-${{ github.event.issue.node_id }}
       cancel-in-progress: false
     runs-on: ubuntu-slim
+    timeout-minutes: 10
     steps:
       - name: Checkout lyrebird
         uses: actions/checkout@v6
@@ -67,6 +68,7 @@ jobs:
     if: github.repository == vars.PRIVATE_REPO && github.event.action == 'closed'
     needs: handle
     runs-on: ubuntu-slim
+    timeout-minutes: 12
     steps:
       - name: Wait 5 minutes
         run: sleep 300
