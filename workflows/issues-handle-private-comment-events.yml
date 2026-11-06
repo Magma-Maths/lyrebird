@@ -1,42 +1,25 @@
-# Install in the PRIVATE repo at .github/workflows/handle-public-event.yml
+# Install in the PRIVATE repo at .github/workflows/issues-handle-private-comment-events.yml
 #
-# Receives forwarded public events via workflow_dispatch and runs
-# the appropriate lyrebird handler.
+# Handles slash commands in private issue comments (/anon).
 
-name: Handle public event
+name: "Issues: Handle private comment events"
 
 on:
-  workflow_dispatch:
-    inputs:
-      event_name:
-        description: 'The original event name (e.g., issues, issue_comment)'
-        required: true
-        type: string
-      action:
-        description: 'The original event action (e.g., opened, created)'
-        required: true
-        type: string
-      issue_node_id:
-        description: 'The node ID of the issue (for concurrency grouping)'
-        required: true
-        type: string
-      event:
-        description: 'The full event payload from the public repo'
-        required: true
-        type: string
+  issue_comment:
+    types: [created]
 
 concurrency:
-  group: public-event-${{ inputs.issue_node_id }}
+  group: private-comment-${{ github.event.issue.node_id }}
   cancel-in-progress: false
 
 env:
   PUBLIC_REPO: ${{ vars.PUBLIC_REPO }}
   PRIVATE_REPO: ${{ vars.PRIVATE_REPO }}
   BOT_LOGIN: ${{ vars.BOT_LOGIN }}
-  EVENT_NAME: ${{ inputs.event_name }}
-  EVENT_ACTION: ${{ inputs.action }}
-  EVENT_SOURCE: public
-  EVENT_PAYLOAD: ${{ inputs.event }}
+  EVENT_NAME: ${{ github.event_name }}
+  EVENT_ACTION: ${{ github.event.action }}
+  EVENT_SOURCE: private
+  EVENT_PAYLOAD: ${{ toJson(github.event) }}
   # Resolution labels: maps resolution key → private label, public
   # close note, and GitHub state_reason.  Customise as needed.
   RESOLUTION_LABELS: >-
@@ -46,20 +29,11 @@ env:
       "cannot-reproduce": {"label": "resolution:cannot-reproduce", "note": "We could not reproduce this with the information available. If you can share steps/logs, we can reopen.",      "state_reason": "not_planned"},
       "custom":           {"label": "resolution:custom",           "note": "",                                                                                                            "state_reason": null}
     }
-  # Area coverage: maps each area label to the login assigned when that label
-  # lands on an open private issue that has no assignee yet. Existing
-  # assignments are never overridden. Areas with no owner are simply omitted,
-  # which means no auto-assignment for them. Keep this value identical in
-  # handle-private-issue.yml and sync.yml.
-  AREA_ASSIGNEES: >-
-    {
-      "Lattices": "assaferan",
-      "Algebras": "jvoight"
-    }
 
 jobs:
   handle:
-    if: github.repository == vars.PRIVATE_REPO
+    # Only run if the comment looks like a slash command
+    if: github.repository == vars.PRIVATE_REPO && startsWith(github.event.comment.body, '/anon')
     runs-on: ubuntu-slim
     steps:
       - name: Checkout lyrebird

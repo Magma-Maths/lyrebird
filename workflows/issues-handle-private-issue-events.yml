@@ -1,8 +1,8 @@
-# Install in the PRIVATE repo at .github/workflows/handle-private-issue.yml
+# Install in the PRIVATE repo at .github/workflows/issues-handle-private-issue-events.yml
 #
 # Handles native issue events on the private repo (close, reopen, label changes).
 
-name: Handle private issue events
+name: "Issues: Handle private issue events"
 
 on:
   issues:
@@ -29,7 +29,7 @@ env:
   # lands on an open private issue that has no assignee yet. Existing
   # assignments are never overridden. Areas with no owner are simply omitted,
   # which means no auto-assignment for them. Keep this value identical in
-  # handle-public-event.yml and sync.yml.
+  # issues-handle-public-event.yml and issues-sync-public-issues.yml.
   AREA_ASSIGNEES: >-
     {
       "Lattices": "assaferan",

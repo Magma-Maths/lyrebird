@@ -68,15 +68,15 @@ If you prefer to set things up by hand:
 Copy these workflow files into `.github/workflows/` in the respective repos:
 
 **Public repo:**
-- `workflows/public-dispatch.yml`
+- `workflows/issues-dispatch-public-events-to-private-repo.yml`
 
 **Private repo:**
-- `workflows/handle-public-event.yml`
-- `workflows/handle-private-issue.yml`
-- `workflows/handle-private-comment.yml`
-- `workflows/sync.yml`
+- `workflows/issues-handle-public-event.yml`
+- `workflows/issues-handle-private-issue-events.yml`
+- `workflows/issues-handle-private-comment-events.yml`
+- `workflows/issues-sync-public-issues.yml`
 
-`sync.yml` is the scheduled reconciliation. It runs `lyrebird sync` daily, and
+`issues-sync-public-issues.yml` is the scheduled reconciliation. It runs `lyrebird sync` daily, and
 on demand from the Actions tab, to catch public issues whose events were dropped
 by a runner failure: it creates any missing private mirror, assigns that
 mirror's area owner, and adds missing labels to existing mirrors. Skip it and
@@ -120,6 +120,6 @@ These environment variables can be set in the workflow files to customize behavi
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `RESOLUTION_LABELS` | *(see README)* | JSON mapping of resolution keys to labels/notes |
-| `AREA_ASSIGNEES` | *(unset)* | JSON mapping area label names to the GitHub login assigned when that label lands on an open, unassigned private issue. Set the same value in `handle-private-issue.yml`, `handle-public-event.yml`, and `sync.yml`. |
+| `AREA_ASSIGNEES` | *(unset)* | JSON mapping area label names to the GitHub login assigned when that label lands on an open, unassigned private issue. Set the same value in `issues-handle-private-issue-events.yml`, `issues-handle-public-event.yml`, and `issues-sync-public-issues.yml`. |
 | `MAPPING_COMMENT_TEMPLATE` | `Thanks for the report! Our team is tracking this and will post updates here.` | Template for the public mapping comment |
 | `NEEDS_RESOLUTION_LABEL` | `resolution:none` | Label applied when private is closed without a resolution |

@@ -12,7 +12,7 @@
 # Prerequisites:
 #   - gh CLI authenticated
 #   - Webhook workflows active on both repos (for setup phase)
-#   - sync.yml workflow deployed to the private repo
+#   - issues-sync-public-issues.yml workflow deployed to the private repo
 
 set -euo pipefail
 
@@ -225,7 +225,7 @@ while [[ ${#SETUP_PAIRS[@]} -lt 3 ]]; do
     echo "  Created public #$num, waiting for mirror..."
     priv_num=$(wait_for_mirror "$num") || {
         echo "  ✗ Timed out waiting for mirror of public #$num"
-        echo "    Are the webhook workflows (public-dispatch + handle-public-event) active?"
+        echo "    Are the webhook workflows (issues-dispatch-public-events-to-private-repo + issues-handle-public-event) active?"
         exit 1
     }
     echo "  ✓ Mirrored to private #$priv_num"
@@ -409,11 +409,11 @@ sleep 5
 step "Phase 3: Run sync (via GitHub Actions)"
 
 # Re-enable sync workflow so we can trigger it
-gh workflow enable "Sync public issues" --repo "$PRIVATE_REPO" 2>/dev/null || true
-echo "  Enabled: $PRIVATE_REPO / Sync public issues"
+gh workflow enable "issues-sync-public-issues.yml" --repo "$PRIVATE_REPO" 2>/dev/null || true
+echo "  Enabled: $PRIVATE_REPO / issues-sync-public-issues.yml"
 
 echo "  Triggering sync workflow..."
-gh workflow run "Sync public issues" --repo "$PRIVATE_REPO"
+gh workflow run "issues-sync-public-issues.yml" --repo "$PRIVATE_REPO"
 sleep 3
 
 # Wait for the workflow run to complete (up to 5 min)
@@ -421,7 +421,7 @@ echo "  Waiting for sync workflow to complete..."
 SYNC_OK=false
 for _ in $(seq 1 60); do
     read -r run_id status conclusion < <(
-        gh run list --repo "$PRIVATE_REPO" --workflow "Sync public issues" --limit 1 \
+        gh run list --repo "$PRIVATE_REPO" --workflow "issues-sync-public-issues.yml" --limit 1 \
             --json databaseId,status,conclusion \
             --jq '.[0] | [.databaseId, .status, .conclusion] | @tsv' 2>/dev/null
     ) || true
@@ -447,7 +447,7 @@ if [[ "$SYNC_OK" != "true" && "$status" != "completed" ]]; then
 fi
 
 # Disable sync workflow again (cleanup trap will re-enable all at exit)
-gh workflow disable "Sync public issues" --repo "$PRIVATE_REPO" 2>/dev/null || true
+gh workflow disable "issues-sync-public-issues.yml" --repo "$PRIVATE_REPO" 2>/dev/null || true
 
 # ── Phase 4: Verify ─────────────────────────────────────────────────────────
 
@@ -569,11 +569,11 @@ fi
 
 # Run sync one more time to bring private mirrors back in line with reverted public
 echo "  Running post-cleanup sync to restore private mirrors..."
-gh workflow enable "Sync public issues" --repo "$PRIVATE_REPO" 2>/dev/null || true
-gh workflow run "Sync public issues" --repo "$PRIVATE_REPO"
+gh workflow enable "issues-sync-public-issues.yml" --repo "$PRIVATE_REPO" 2>/dev/null || true
+gh workflow run "issues-sync-public-issues.yml" --repo "$PRIVATE_REPO"
 sleep 3
 for _ in $(seq 1 60); do
-    status=$(gh run list --repo "$PRIVATE_REPO" --workflow "Sync public issues" --limit 1 \
+    status=$(gh run list --repo "$PRIVATE_REPO" --workflow "issues-sync-public-issues.yml" --limit 1 \
         --json status --jq '.[0].status' 2>/dev/null || echo "")
     if [[ "$status" == "completed" ]]; then
         echo "  ✓ Post-cleanup sync complete"
@@ -581,7 +581,7 @@ for _ in $(seq 1 60); do
     fi
     sleep 5
 done
-gh workflow disable "Sync public issues" --repo "$PRIVATE_REPO" 2>/dev/null || true
+gh workflow disable "issues-sync-public-issues.yml" --repo "$PRIVATE_REPO" 2>/dev/null || true
 
 # Workflows are re-enabled by the EXIT trap
 
