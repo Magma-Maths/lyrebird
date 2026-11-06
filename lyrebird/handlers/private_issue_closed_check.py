@@ -7,9 +7,36 @@ import logging
 from github import Github
 
 from lyrebird.config import Config
-from lyrebird.mapping import parse_private_body_markers
+from lyrebird.mapping import parse_private_body_markers, public_number_from_url
 
 logger = logging.getLogger(__name__)
+
+
+def _nudge_message(config: Config, public_url: str, present: set[str]) -> str:
+    public_issue = f"Public issue [#{public_number_from_url(public_url)}]({public_url})"
+    if len(present) > 1:
+        labels = ", ".join(f"`{name}`" for name in sorted(present))
+        return (
+            f"{public_issue} was closed with no note because this "
+            f"issue has {len(present)} resolution labels ({labels}). "
+            "Remove them all, then add the one you want; adding it posts its note."
+        )
+
+    offered = [
+        f"`{name}`"
+        for name, note, _ in config.resolution_labels.values()
+        if note and name != config.needs_resolution_label
+    ]
+    allowed = (
+        ", ".join(offered[:-1]) + " or " + offered[-1]
+        if len(offered) > 1
+        else "".join(offered)
+    )
+    return (
+        f"{public_issue} was closed with no note. "
+        f"To post one, add a resolution label: {allowed}. "
+        "To write your own note instead, comment `/anon <message>` here."
+    )
 
 
 def handle(client: Github, config: Config, payload: dict) -> None:
@@ -42,24 +69,11 @@ def handle(client: Github, config: Config, payload: dict) -> None:
         # Already handled by close handler or label handler
         return
 
-    # No single resolution label — nudge
+    # No single resolution label - nudge
     if config.needs_resolution_label not in current_labels:
         priv_issue.add_to_labels(config.needs_resolution_label)
 
-    allowed = ", ".join(
-        f"`{name}`"
-        for name in sorted(all_resolution_labels - {config.needs_resolution_label})
-    )
-    if len(resolution_labels_present) > 1:
-        msg = (
-            f"Multiple resolution labels present ({len(resolution_labels_present)}). "
-            f"Remove extras so exactly one remains ({allowed}), or use `/anon`."
-        )
-    else:
-        msg = (
-            "No resolution posted publicly. Add exactly one resolution label "
-            f"({allowed}), or use `/anon`."
-        )
+    msg = _nudge_message(config, markers[0], resolution_labels_present)
     priv_issue.create_comment(msg)
     logger.info(
         "Private #%d closed with %d resolution labels, nudged after grace period",

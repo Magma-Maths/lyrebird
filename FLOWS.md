@@ -179,7 +179,7 @@ flowchart TD
     E -- "0 or >1" --> G{"resolution:none<br/>already present?"}
     G -- No --> H["Add resolution:none<br/>label"]
     G -- Yes --> I
-    H --> I["Post nudge comment<br/>(message varies:<br/>0 → 'add one' / >1 → 'remove extras')"]
+    H --> I["Post nudge comment<br/>(message varies:<br/>0 -> 'add one' / >1 -> 'remove all, add one')"]
 ```
 
 ### Private Issue Reopened

@@ -8,6 +8,9 @@ from lyrebird.handlers.private_issue_closed_check import handle
 from tests.conftest import make_private_issue_body
 
 
+PUBLIC_URL = "https://github.com/testorg/public-repo/issues/42"
+
+
 def _make_payload():
     return {
         "action": "closed_check",
@@ -68,8 +71,12 @@ def test_no_resolution_label_nudges(config, mock_client):
     priv_issue.add_to_labels.assert_called_once_with("resolution:none")
     priv_issue.create_comment.assert_called_once()
     msg = priv_issue.create_comment.call_args[0][0]
-    assert "No resolution posted" in msg
-    assert "/anon" in msg
+    assert msg == (
+        f"Public issue [#42]({PUBLIC_URL}) was closed with no note. "
+        "To post one, add a resolution label: `resolution:completed`, "
+        "`resolution:not-planned` or `resolution:cannot-reproduce`. "
+        "To write your own note instead, comment `/anon <message>` here."
+    )
 
 
 def test_not_mirrored_skips(config, mock_client):
@@ -111,5 +118,9 @@ def test_multiple_resolution_labels_nudges(config, mock_client):
     priv_issue.add_to_labels.assert_called_once_with("resolution:none")
     priv_issue.create_comment.assert_called_once()
     msg = priv_issue.create_comment.call_args[0][0]
-    assert "Multiple resolution labels" in msg
-    assert "/anon" in msg
+    assert msg == (
+        f"Public issue [#42]({PUBLIC_URL}) was closed with no note because this "
+        "issue has 2 resolution labels (`resolution:completed`, "
+        "`resolution:not-planned`). Remove them all, then add the one you want; "
+        "adding it posts its note."
+    )
