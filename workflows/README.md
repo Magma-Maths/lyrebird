@@ -34,6 +34,8 @@ Copy all four files to `.github/workflows/`:
 - `issues-handle-private-comment-events.yml`
 - `issues-sync-public-issues.yml`
 
+For existing installations, follow the [workflow upgrade instructions](../INSTALL.md#upgrading-renamed-workflows).
+
 ## How it works
 
 1. An issue or comment event fires on the public repo.

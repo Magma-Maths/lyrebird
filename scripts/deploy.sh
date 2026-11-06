@@ -138,7 +138,7 @@ deploy_workflows() {
 
     if [[ "$USE_PR" == true ]]; then
         git push -q -u origin lyrebird/deploy-workflows
-        gh pr create --title "Add lyrebird workflows" --body "Deploys lyrebird workflow files."
+        gh pr create --title "Add lyrebird workflows" --body "Deploys lyrebird workflow files. Merge the private deployment PR before the public deployment PR."
         echo "    PR created"
     else
         git push -q origin main
@@ -146,14 +146,14 @@ deploy_workflows() {
     fi
 }
 
-deploy_workflows "$PUBLIC_REPO" public-clone \
-    issues-dispatch-public-events-to-private-repo.yml
-
 deploy_workflows "$PRIVATE_REPO" private-clone \
     issues-handle-public-event.yml \
     issues-handle-private-issue-events.yml \
     issues-handle-private-comment-events.yml \
     issues-sync-public-issues.yml
+
+deploy_workflows "$PUBLIC_REPO" public-clone \
+    issues-dispatch-public-events-to-private-repo.yml
 
 # ── Ensure resolution labels exist on private repo ───────────────────────────
 
