@@ -128,7 +128,7 @@ mkdir public-clone && cd public-clone
 git init -b main -q
 git remote add origin "git@github.com:$PUBLIC_REPO.git"
 mkdir -p .github/workflows
-cp "$LYREBIRD_DIR/workflows/public-dispatch.yml" .github/workflows/
+cp "$LYREBIRD_DIR/workflows/issues-dispatch-public-events-to-private-repo.yml" .github/workflows/
 git add .
 git commit -q -m "ci: add lyrebird dispatch workflow"
 git push -q -u origin main
@@ -140,10 +140,10 @@ mkdir private-clone && cd private-clone
 git init -b main -q
 git remote add origin "git@github.com:$PRIVATE_REPO.git"
 mkdir -p .github/workflows
-cp "$LYREBIRD_DIR/workflows/handle-public-event.yml"     .github/workflows/
-cp "$LYREBIRD_DIR/workflows/handle-private-issue.yml"    .github/workflows/
-cp "$LYREBIRD_DIR/workflows/handle-private-comment.yml"  .github/workflows/
-cp "$LYREBIRD_DIR/workflows/sync.yml"                    .github/workflows/
+cp "$LYREBIRD_DIR/workflows/issues-handle-public-event.yml" .github/workflows/
+cp "$LYREBIRD_DIR/workflows/issues-handle-private-issue-events.yml" .github/workflows/
+cp "$LYREBIRD_DIR/workflows/issues-handle-private-comment-events.yml" .github/workflows/
+cp "$LYREBIRD_DIR/workflows/issues-sync-public-issues.yml" .github/workflows/
 git add .
 git commit -q -m "ci: add lyrebird handler workflows"
 git push -q -u origin main

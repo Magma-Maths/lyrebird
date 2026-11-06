@@ -8,12 +8,12 @@ The flows Lyrebird implements for issue and comment events, shown as Mermaid dia
 
 ```mermaid
 flowchart LR
-    PW["Public repo webhook"] --> PD["public-dispatch.yml<br/>(workflow_dispatch)"]
-    PD --> HPE["handle-public-event.yml<br/>(private repo)"]
+    PW["Public repo webhook"] --> PD["issues-dispatch-public-events-to-private-repo.yml<br/>(workflow_dispatch)"]
+    PD --> HPE["issues-handle-public-event.yml<br/>(private repo)"]
     HPE --> CLI["python -m lyrebird"]
-    PI["Private repo<br/>issue event"] --> HPI["handle-private-issue.yml"]
+    PI["Private repo<br/>issue event"] --> HPI["issues-handle-private-issue-events.yml"]
     HPI --> CLI
-    PC["Private repo<br/>comment event"] --> HPC["handle-private-comment.yml"]
+    PC["Private repo<br/>comment event"] --> HPC["issues-handle-private-comment-events.yml"]
     HPC --> CLI
     CLI --> LP{"Bot's own event?"}
     LP -- Yes --> IGN[Ignore]

@@ -56,7 +56,7 @@ Defaults:
 | `cannot-reproduce` | `resolution:cannot-reproduce` | We could not reproduce this with the information available. If you can share steps/logs, we can reopen. | `not_planned` |
 | `custom` | `resolution:custom` | *(none)* | *(none)* |
 
-These are set explicitly in the workflow templates (`RESOLUTION_LABELS` in the `env:` block of each `handle-*.yml`). To customize, edit them there or set `RESOLUTION_LABELS` as JSON:
+These are set explicitly in the workflow templates (`RESOLUTION_LABELS` in the `env:` block of each `issues-handle-*.yml`). To customize, edit them there or set `RESOLUTION_LABELS` as JSON:
 
 ```json
 {
@@ -90,7 +90,7 @@ The daily reconciler does not assign owners when it adds a missing label to an
 existing mirror.
 
 The area &rarr; owner map is the `AREA_ASSIGNEES` JSON in the `env:` block of
-`handle-private-issue.yml`, `handle-public-event.yml`, and `sync.yml` (keep the
+`issues-handle-private-issue-events.yml`, `issues-handle-public-event.yml`, and `issues-sync-public-issues.yml` (keep the
 three copies identical; same mechanism as `RESOLUTION_LABELS`):
 
 ```json

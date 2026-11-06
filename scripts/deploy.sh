@@ -148,13 +148,13 @@ deploy_workflows() {
 }
 
 deploy_workflows "$PUBLIC_REPO" public-clone \
-    public-dispatch.yml
+    issues-dispatch-public-events-to-private-repo.yml
 
 deploy_workflows "$PRIVATE_REPO" private-clone \
-    handle-public-event.yml \
-    handle-private-issue.yml \
-    handle-private-comment.yml \
-    sync.yml
+    issues-handle-public-event.yml \
+    issues-handle-private-issue-events.yml \
+    issues-handle-private-comment-events.yml \
+    issues-sync-public-issues.yml
 
 # ── Ensure resolution labels exist on private repo ───────────────────────────
 

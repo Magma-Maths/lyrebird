@@ -84,7 +84,7 @@ The `/anon` message is always posted (existing behavior). The new logic just han
 
 ## Workflow changes
 
-- Add a delayed job to `handle-private-issue.yml` with a `sleep 300` step:
+- Add a delayed job to `issues-handle-private-issue-events.yml` with a `sleep 300` step:
   ```yaml
   jobs:
     handle-event:
@@ -141,8 +141,8 @@ Same as 0 labels: close public with no comment, delayed check nudges to pick exa
 5. `lyrebird/handlers/slash_anon.py` -- label bookkeeping on closed issues
 6. `lyrebird/handlers/_cleanup_labels.py` -- update for renamed labels
 7. `lyrebird/dispatch.py` -- add `("issues", "closed_check")` route
-8. `workflows/handle-private-issue.yml` -- add delayed-close-check job
-9. `workflows/handle-private-comment.yml` -- update `RESOLUTION_LABELS` JSON
-10. `workflows/handle-public-event.yml` -- update `RESOLUTION_LABELS` JSON
+8. `workflows/issues-handle-private-issue-events.yml` -- add delayed-close-check job
+9. `workflows/issues-handle-private-comment-events.yml` -- update `RESOLUTION_LABELS` JSON
+10. `workflows/issues-handle-public-event.yml` -- update `RESOLUTION_LABELS` JSON
 11. `scripts/setup-test-repos.sh` -- update label names, add `resolution:custom`
 12. Tests, docs, demo -- update for renamed labels

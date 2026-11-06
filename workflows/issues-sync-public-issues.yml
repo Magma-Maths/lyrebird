@@ -1,9 +1,9 @@
-# Install in the PRIVATE repo at .github/workflows/sync.yml
+# Install in the PRIVATE repo at .github/workflows/issues-sync-public-issues.yml
 #
 # Daily reconciliation of public issues with their private mirrors.
 # Catches any events missed due to runner failures or transient errors.
 
-name: Sync public issues
+name: "Issues: Sync public issues"
 
 on:
   schedule:
@@ -37,7 +37,7 @@ env:
   # lands on an open private issue that has no assignee yet. Existing
   # assignments are never overridden. Areas with no owner are simply omitted,
   # which means no auto-assignment for them. Keep this value identical in
-  # handle-private-issue.yml and handle-public-event.yml.
+  # issues-handle-private-issue-events.yml and issues-handle-public-event.yml.
   AREA_ASSIGNEES: >-
     {
       "Lattices": "assaferan",
