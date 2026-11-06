@@ -8,6 +8,7 @@ from github import Github
 
 from lyrebird.config import Config
 from lyrebird.handlers._assign_area_owner import assign_area_owner_by_number
+from lyrebird.handlers._post_resolution import post_resolution
 from lyrebird.mapping import parse_private_body_markers, public_number_from_url
 
 logger = logging.getLogger(__name__)
@@ -90,24 +91,7 @@ def _maybe_close_public_on_label(
 
     pub_issue = pub_repo.get_issue(public_number)
 
-    note = config.resolution_note(resolution_key)
-    if note:
-        pub_issue.create_comment(note)
-
-    # Close public if not already closed
-    if pub_issue.state != "closed":
-        state_reason = config.resolution_state_reason(resolution_key)
-        if state_reason:
-            pub_issue.edit(state="closed", state_reason=state_reason)
-        else:
-            pub_issue.edit(state="closed")
-
-    # Remove resolution:none
-    if config.needs_resolution_label in current_labels:
-        try:
-            priv_issue.remove_from_labels(config.needs_resolution_label)
-        except Exception:
-            pass
+    post_resolution(config, priv_issue, pub_issue, resolution_key, current_labels)
 
     logger.info(
         "Posted resolution note on public #%d after label added to closed private #%d",

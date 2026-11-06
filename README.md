@@ -26,7 +26,13 @@ Posts `<message>` as an anonymous comment on the public issue and acknowledges i
 When a private issue is closed:
 - The **public issue is always closed immediately**.
 - With **exactly one** resolution label &rarr; the predefined note is posted on the public issue.
-- With **zero or multiple** resolution labels &rarr; the public issue is closed with no comment. A 5-minute delayed check then nudges on the private issue with a `resolution:none` label if no resolution was added.
+- With **zero or multiple** resolution labels &rarr; the public issue is closed with no comment.
+
+After 5 minutes, a delayed check runs if the private issue is still closed:
+
+- With **exactly one** resolution label, it does nothing; a label added during the grace period takes precedence.
+- With **no resolution label**, it checks the latest close event. If a PR or commit closed the issue, it adds the configured `completed` label and posts its note publicly. A private comment links the PR or commit and the public issue.
+- Otherwise, it adds `resolution:none` and posts a nudge on the private issue. Manual closes, multiple resolution labels, a failed closer lookup, or no configured `completed` label take this path.
 
 When a private issue is reopened, resolution and `resolution:none` labels are removed, and the public issue is reopened if it was closed.
 
