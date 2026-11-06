@@ -85,6 +85,13 @@ by a runner failure: it creates any missing private mirror, assigns that
 mirror's area owner, and adds missing labels to existing mirrors. Skip it and
 a dropped event is only repaired if that issue happens to see another event.
 
+### Upgrading renamed workflows
+
+Existing installations must upgrade manually; `deploy.sh` only copies the new files.
+In the private repo, remove `handle-private-issue.yml`, `handle-private-comment.yml` and `sync.yml` in the commit adding their replacements listed above.
+Apply that commit before replacing public `public-dispatch.yml` with its listed replacement.
+Keep private `handle-public-event.yml` until the new public dispatcher is live and old dispatcher runs finish; then remove it.
+
 ### Repository variables
 
 Set these on **both** repos (Settings > Secrets and variables > Actions > Variables):
