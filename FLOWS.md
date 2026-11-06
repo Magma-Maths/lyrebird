@@ -166,17 +166,26 @@ flowchart TD
 
 ### Delayed Close Check (5 min after close)
 
-A second workflow job runs after a 5-minute delay in the workflow. It re-checks the issue state and nudges if no resolution was provided.
+A second workflow job runs after a 5-minute delay. It re-checks the issue state and leaves any single resolution label in place.
+
+With no resolution label, it checks the latest close event. If a PR or commit closed the issue, it adds the configured `completed` label and posts its note publicly. It also posts a private comment linking the PR or commit and the public issue, and removes `resolution:none` if present.
+
+Manual closes and multiple resolution labels get the nudge. A failed closer lookup or a configuration without a `completed` label also falls back to the nudge.
 
 ```mermaid
 flowchart TD
     A["Delayed check fires<br/>(5 min after close)"] --> B{"Mirrored issue?"}
     B -- No --> Z["Do nothing"]
     B -- Yes --> C{"Issue still<br/>closed?"}
-    C -- No --> D["Bail — reopened<br/>during grace period"]
+    C -- No --> D["Bail - reopened<br/>during grace period"]
     C -- Yes --> E{"Exactly 1 resolution<br/>label?<br/>(excl. resolution:none)"}
-    E -- Yes --> F["Do nothing —<br/>already handled"]
-    E -- "0 or >1" --> G{"resolution:none<br/>already present?"}
+    E -- Yes --> F["Do nothing -<br/>already handled"]
+    E -- No --> J{"No resolution labels<br/>and completed configured?"}
+    J -- No --> G{"resolution:none<br/>already present?"}
+    J -- Yes --> K{"Latest close event:<br/>PR or commit closer?"}
+    K -- "No or lookup failed" --> G
+    K -- Yes --> L["Add completed label<br/>and post its note publicly"]
+    L --> M["Remove resolution:none<br/>if present; post private comment<br/>linking closer and public issue"]
     G -- No --> H["Add resolution:none<br/>label"]
     G -- Yes --> I
     H --> I["Post nudge comment<br/>(message varies:<br/>0 -> 'add one' / >1 -> 'remove all, add one')"]
@@ -288,8 +297,20 @@ flowchart TD
 4. Lyrebird posts message on public, adds `resolution:custom` on private
 5. Delayed check fires, sees `resolution:custom`, does nothing
 
-### No action taken (nudge)
-1. Maintainer closes private issue
+### Closed by a PR or commit
+
+1. A merged PR or a closing commit closes the private issue through a closing keyword such as `Fixes #10`
+2. Lyrebird closes the public issue with no comment
+3. 5 minutes pass with no resolution label added
+4. Delayed check finds the PR or commit in the latest close event
+5. Lyrebird adds `resolution:completed` and posts its configured note on the public issue
+6. A private comment links the PR or commit and the public issue
+
+This path requires a configured `completed` label. A resolution label added during the grace period takes precedence.
+
+### Manual close with no action taken (nudge)
+
+1. Maintainer closes private issue by hand
 2. Lyrebird closes public issue
 3. 5 minutes pass with no action
 4. Delayed check adds `resolution:none` and posts nudge on private

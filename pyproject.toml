@@ -9,7 +9,7 @@ lyrebird = "lyrebird.cli:main"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4"
-PyGithub = ">=2.1.1"
+PyGithub = ">=2.5.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7.0"
