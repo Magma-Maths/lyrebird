@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 from lyrebird.handlers._ensure_mapping import ensure_private_mapping
@@ -67,6 +68,18 @@ def test_creates_private_issue_when_no_mapping(config, mock_client):
     # pub_issue was fetched once (threaded through resolve_mapping) — the
     # optimization that saves one HTTP call on the bootstrap path.
     assert mock_pub_repo.get_issue.call_count == 1
+
+
+def test_fallback_scan_lists_only_issues_updated_since_public_creation(config, mock_client):
+    """With no mapping comment, the private issue scan starts at the public issue's creation time."""
+    public_issue = make_public_issue_payload()
+    _, mock_priv_repo, mock_pub_issue_obj, _ = setup_missing_mapping(config, mock_client)
+    created = datetime(2026, 11, 10, 3, 30, 56, tzinfo=timezone.utc)
+    mock_pub_issue_obj.created_at = created
+
+    ensure_private_mapping(mock_client, config, public_issue)
+
+    mock_priv_repo.get_issues.assert_called_once_with(state="all", since=created)
 
 
 def test_bootstrap_mirrors_labels_type_and_milestone(config, mock_client):

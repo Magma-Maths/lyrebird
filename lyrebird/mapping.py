@@ -228,7 +228,9 @@ def resolve_mapping(
 
     # Step 2: Fallback — search private issue bodies for the node_id
     priv_repo = client.get_repo(config.private_repo)
-    for issue in priv_repo.get_issues(state="all"):
+    # A copy is created after its public issue, so its updated_at is at or
+    # after the public issue's created_at.
+    for issue in priv_repo.get_issues(state="all", since=pub_issue.created_at):
         body = issue.body or ""
         markers = parse_private_body_markers(body)
         if markers and markers[1] == node_id:

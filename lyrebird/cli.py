@@ -30,7 +30,7 @@ def main() -> None:
     if not token:
         logger.error("GITHUB_TOKEN is required")
         sys.exit(1)
-    client = Github(auth=Auth.Token(token))
+    client = Github(auth=Auth.Token(token), per_page=100)
 
     # Parse payload
     payload_str = os.environ.get("EVENT_PAYLOAD")
@@ -82,7 +82,7 @@ def sync_main() -> None:
     if not token:
         logger.error("GITHUB_TOKEN is required")
         sys.exit(1)
-    client = Github(auth=Auth.Token(token))
+    client = Github(auth=Auth.Token(token), per_page=100)
 
     # Parse --since N from argv
     since_hours: int | None = 25
