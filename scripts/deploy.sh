@@ -13,7 +13,8 @@
 #
 # Prerequisites:
 #   - gh CLI authenticated (gh auth login)
-#   - A GitHub App with Actions read/write and Issues read/write permissions
+#   - A GitHub App with Actions read/write, Contents read, Issues read/write and
+#     Pull requests read permissions
 #   - Both repos already exist
 
 set -euo pipefail
