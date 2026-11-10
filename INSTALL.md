@@ -11,8 +11,11 @@ This guide walks through setting up Lyrebird for a pair of public and private re
 5. Set these permissions:
    - **Repository permissions:**
      - **Actions:** Read and write
+     - **Contents:** Read-only
      - **Issues:** Read and write
      - **Metadata:** Read-only (selected automatically)
+     - **Pull requests:** Read-only
+   - The delayed close check uses Contents and Pull requests to find the pull request or commit that closed an issue. Without them, it posts the resolution nudge instead.
 6. Click **Create GitHub App**
 7. Note the **App ID** from the app's settings page
 8. Under **Private keys**, click **Generate a private key** and save the `.pem` file
