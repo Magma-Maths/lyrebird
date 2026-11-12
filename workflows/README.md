@@ -11,7 +11,7 @@ Set these on **both repos** (or as organization-level settings):
 
 | Name | Type | Description | Example |
 |------|------|-------------|---------|
-| `LYREBIRD_APP_ID` | Variable | GitHub App ID | `123456` |
+| `LYREBIRD_CLIENT_ID` | Variable | GitHub App client ID | `Iv23li1234567890abcd` |
 | `LYREBIRD_APP_PRIVATE_KEY` | Secret | GitHub App private key (PEM) | `-----BEGIN RSA...` |
 | `LYREBIRD_REPO` | Variable | Lyrebird source repo (public) | `yourorg/lyrebird` |
 | `PUBLIC_REPO` | Variable | Full name of public repo | `yourorg/public-repo` |

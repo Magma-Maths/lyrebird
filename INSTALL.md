@@ -17,7 +17,7 @@ This guide walks through setting up Lyrebird for a pair of public and private re
      - **Pull requests:** Read-only
    - The delayed close check uses Contents and Pull requests to find the pull request or commit that closed an issue. Without them, it posts the resolution nudge instead.
 6. Click **Create GitHub App**
-7. Note the **App ID** from the app's settings page
+7. Note the **Client ID** from the app's settings page
 8. Under **Private keys**, click **Generate a private key** and save the `.pem` file
 
 ## 2. Install the App on your repos
@@ -43,7 +43,7 @@ ORG="yourorg"
 PUBLIC_REPO_NAME="your-public-repo"
 PRIVATE_REPO_NAME="your-private-repo"
 LYREBIRD_REPO="yourorg/lyrebird"        # where this repo lives
-APP_ID="123456"                          # from step 1
+CLIENT_ID="Iv23li1234567890abcd"         # from step 1
 BOT_LOGIN="lyrebird-agent[bot]"          # your app name + [bot]
 PEM_FILE="/path/to/your-app.pem"         # from step 1
 ```
@@ -98,7 +98,7 @@ Set these on **both** repos (Settings > Secrets and variables > Actions > Variab
 
 | Variable | Value |
 |----------|-------|
-| `LYREBIRD_APP_ID` | Your GitHub App ID |
+| `LYREBIRD_CLIENT_ID` | Your GitHub App's client ID |
 | `LYREBIRD_REPO` | `yourorg/lyrebird` |
 | `PUBLIC_REPO` | `yourorg/your-public-repo` |
 | `PUBLIC_REPO_NAME` | `your-public-repo` |
