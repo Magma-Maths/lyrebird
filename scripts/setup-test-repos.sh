@@ -3,7 +3,7 @@
 # Sets up a pair of test repos for end-to-end lyrebird testing.
 #
 # Usage:
-#   cp scripts/.env.example scripts/.env   # fill in APP_ID and PEM_FILE
+#   cp scripts/.env.example scripts/.env   # fill in CLIENT_ID and PEM_FILE
 #   ./scripts/setup-test-repos.sh
 #
 # Prerequisites:
@@ -23,7 +23,7 @@ ENV_FILE="$SCRIPT_DIR/.env"
 if [[ ! -f "$ENV_FILE" ]]; then
     echo "Error: $ENV_FILE not found."
     echo "  cp scripts/.env.example scripts/.env"
-    echo "  # fill in APP_ID and PEM_FILE, then re-run"
+    echo "  # fill in CLIENT_ID and PEM_FILE, then re-run"
     exit 1
 fi
 
@@ -36,7 +36,7 @@ PRIVATE_REPO="$ORG/$PRIVATE_REPO_NAME"
 # ── Validate ─────────────────────────────────────────────────────────────────
 
 missing=()
-[[ -z "${APP_ID:-}" ]]            && missing+=("APP_ID")
+[[ -z "${CLIENT_ID:-}" ]]         && missing+=("CLIENT_ID")
 [[ -z "${PEM_FILE:-}" ]]          && missing+=("PEM_FILE")
 [[ -z "${ORG:-}" ]]               && missing+=("ORG")
 [[ -z "${PUBLIC_REPO_NAME:-}" ]]  && missing+=("PUBLIC_REPO_NAME")
@@ -57,7 +57,7 @@ echo "  Org:          $ORG"
 echo "  Public repo:  $PUBLIC_REPO"
 echo "  Private repo: $PRIVATE_REPO"
 echo "  Lyrebird:     $LYREBIRD_REPO"
-echo "  App ID:       $APP_ID"
+echo "  Client ID:    $CLIENT_ID"
 echo "  Bot login:    $BOT_LOGIN"
 echo
 
@@ -104,7 +104,7 @@ echo "==> Setting variables and secrets..."
 
 for REPO in "$PUBLIC_REPO" "$PRIVATE_REPO"; do
     echo "  $REPO"
-    gh variable set LYREBIRD_APP_ID    --repo "$REPO" --body "$APP_ID"
+    gh variable set LYREBIRD_CLIENT_ID --repo "$REPO" --body "$CLIENT_ID"
     gh variable set LYREBIRD_REPO      --repo "$REPO" --body "$LYREBIRD_REPO"
     gh variable set PUBLIC_REPO        --repo "$REPO" --body "$PUBLIC_REPO"
     gh variable set PUBLIC_REPO_NAME   --repo "$REPO" --body "$PUBLIC_REPO_NAME"
