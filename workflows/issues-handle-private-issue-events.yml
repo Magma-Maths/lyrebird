@@ -8,7 +8,10 @@ on:
   issues:
     types: [closed, reopened, labeled, unlabeled, typed, untyped, milestoned, demilestoned]
 
-# Shared env vars — available to all jobs/steps.
+permissions:
+  contents: read
+
+# Shared env vars, available to all jobs/steps.
 env:
   PUBLIC_REPO: ${{ vars.PUBLIC_REPO }}
   PRIVATE_REPO: ${{ vars.PRIVATE_REPO }}
@@ -16,7 +19,7 @@ env:
   EVENT_NAME: ${{ github.event_name }}
   EVENT_SOURCE: private
   EVENT_PAYLOAD: ${{ toJson(github.event) }}
-  # Resolution labels: maps resolution key → private label, public
+  # Resolution labels: maps resolution key to private label, public
   # close note, and GitHub state_reason.  Customise as needed.
   RESOLUTION_LABELS: >-
     {
@@ -45,13 +48,14 @@ jobs:
     runs-on: ubuntu-slim
     steps:
       - name: Checkout lyrebird
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
+          persist-credentials: false
           repository: ${{ vars.LYREBIRD_REPO }}
           path: lyrebird
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
 
@@ -60,7 +64,7 @@ jobs:
 
       - name: Generate App token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.LYREBIRD_CLIENT_ID }}
           private-key: ${{ secrets.LYREBIRD_APP_PRIVATE_KEY }}
@@ -82,13 +86,14 @@ jobs:
         run: sleep 300
 
       - name: Checkout lyrebird
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
+          persist-credentials: false
           repository: ${{ vars.LYREBIRD_REPO }}
           path: lyrebird
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
 
@@ -97,7 +102,7 @@ jobs:
 
       - name: Generate App token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.LYREBIRD_CLIENT_ID }}
           private-key: ${{ secrets.LYREBIRD_APP_PRIVATE_KEY }}
